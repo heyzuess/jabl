@@ -7,9 +7,15 @@ import { FilePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { registerAblLanguage } from "@/lib/abl/register";
+import {
+  checkAblSyntax,
+  diagnosticsToMarkers,
+} from "@/lib/abl/syntax-check";
 import { MONACO_THEME_NAME } from "@/lib/theme/themes";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { PaneChrome } from "./PaneChrome";
+
+const MARKER_OWNER = "abl-syntax";
 
 type EditorPaneProps = {
   applyTheme: (monaco: typeof Monaco) => void;
@@ -18,10 +24,14 @@ type EditorPaneProps = {
 
 export function EditorPane({ applyTheme, themeKey }: EditorPaneProps) {
   const monacoRef = useRef<typeof Monaco | null>(null);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const openTabs = useWorkspaceStore((s) => s.openTabs);
   const activePath = useWorkspaceStore((s) => s.activePath);
   const buffers = useWorkspaceStore((s) => s.buffers);
   const dirty = useWorkspaceStore((s) => s.dirty);
+  const syntaxCheckNonce = useWorkspaceStore((s) => s.syntaxCheckNonce);
+  const syntaxFocus = useWorkspaceStore((s) => s.syntaxFocus);
+  const clearSyntaxFocus = useWorkspaceStore((s) => s.clearSyntaxFocus);
   const setActivePath = useWorkspaceStore((s) => s.setActivePath);
   const closeTab = useWorkspaceStore((s) => s.closeTab);
   const updateBuffer = useWorkspaceStore((s) => s.updateBuffer);
@@ -33,9 +43,34 @@ export function EditorPane({ applyTheme, themeKey }: EditorPaneProps) {
   const activeTab = openTabs.find((t) => t.path === activePath);
   const value = activePath ? (buffers[activePath] ?? "") : "";
 
+  const applyMarkers = useCallback(
+    (_path: string | null, source: string, language: string | undefined) => {
+      const monaco = monacoRef.current;
+      const model = editorRef.current?.getModel() ?? null;
+      if (!monaco || !model) return;
+
+      if (language !== "abl") {
+        monaco.editor.setModelMarkers(model, MARKER_OWNER, []);
+        return;
+      }
+
+      const diags = checkAblSyntax(source);
+      const markers = diagnosticsToMarkers(diags).map((m) => ({
+        ...m,
+        severity:
+          m.severity === "Error"
+            ? monaco.MarkerSeverity.Error
+            : monaco.MarkerSeverity.Warning,
+      }));
+      monaco.editor.setModelMarkers(model, MARKER_OWNER, markers);
+    },
+    []
+  );
+
   const handleMount: OnMount = useCallback(
-    (_editor, monaco) => {
+    (editor, monaco) => {
       monacoRef.current = monaco;
+      editorRef.current = editor;
       registerAblLanguage(monaco);
       applyTheme(monaco);
     },
@@ -47,6 +82,28 @@ export function EditorPane({ applyTheme, themeKey }: EditorPaneProps) {
       applyTheme(monacoRef.current);
     }
   }, [applyTheme, themeKey]);
+
+  // Debounced syntax markers for the active ABL buffer
+  useEffect(() => {
+    if (!activePath || !activeTab) return;
+    const handle = window.setTimeout(() => {
+      applyMarkers(activePath, value, activeTab.language);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [activePath, activeTab, value, applyMarkers, syntaxCheckNonce]);
+
+  // Jump to first diagnostic when requested (e.g. after Check Syntax)
+  useEffect(() => {
+    if (!syntaxFocus || !editorRef.current) return;
+    if (syntaxFocus.path !== activePath) return;
+    editorRef.current.revealLineInCenter(syntaxFocus.line);
+    editorRef.current.setPosition({
+      lineNumber: syntaxFocus.line,
+      column: syntaxFocus.column,
+    });
+    editorRef.current.focus();
+    clearSyntaxFocus();
+  }, [syntaxFocus, activePath, clearSyntaxFocus]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

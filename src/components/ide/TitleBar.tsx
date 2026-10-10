@@ -2,15 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  Bug,
   ChevronDown,
   FilePlus,
   FolderOpen,
   Moon,
   Palette,
   Save,
+  ScanSearch,
   Sun,
   Files,
 } from "lucide-react";
+import { languageIdForPath } from "@/lib/abl/register";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -47,11 +50,14 @@ export function TitleBar({
   const loadSamples = useWorkspaceStore((s) => s.loadSamples);
   const saveActive = useWorkspaceStore((s) => s.saveActive);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
+  const injectTerminal = useWorkspaceStore((s) => s.injectTerminal);
   const activePath = useWorkspaceStore((s) => s.activePath);
   const dirty = useWorkspaceStore((s) => s.dirty);
   const rootName = useWorkspaceStore((s) => s.rootName);
   const statusMessage = useWorkspaceStore((s) => s.statusMessage);
   const fsMode = useWorkspaceStore((s) => s.mode);
+  const canDebugAbl =
+    !!activePath && languageIdForPath(activePath) === "abl";
 
   const sidebarVisible = useLayoutStore((s) => s.sidebarVisible);
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
@@ -224,6 +230,38 @@ export function TitleBar({
                 </DropdownMenuItem>
               </>
             )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 text-xs"
+              />
+            }
+          >
+            Debug
+            <ChevronDown className="size-3 opacity-70" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-52">
+            <DropdownMenuItem
+              disabled={!canDebugAbl}
+              onClick={() => injectTerminal("check")}
+            >
+              <ScanSearch className="size-3.5" />
+              Check Syntax
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canDebugAbl}
+              onClick={() => injectTerminal("debug")}
+            >
+              <Bug className="size-3.5" />
+              Start Debugger
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 

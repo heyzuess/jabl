@@ -38,6 +38,12 @@ export type WorkspaceState = {
   statusMessage: string | null;
   loading: boolean;
   newFileDialogOpen: boolean;
+  /** Command line injected into the terminal (menu → CLI bridge). */
+  terminalInject: string | null;
+  /** Bumped to force an immediate syntax re-check in the editor. */
+  syntaxCheckNonce: number;
+  /** Optional focus target after check (1-based line/col). */
+  syntaxFocus: { path: string; line: number; column: number } | null;
 
   openFolderViaPicker: () => Promise<void>;
   openFolderViaInput: (files: FileList) => Promise<void>;
@@ -56,6 +62,12 @@ export type WorkspaceState = {
   setStatus: (msg: string | null) => void;
   setNewFileDialogOpen: (open: boolean) => void;
   openNewFileDialog: () => void;
+  injectTerminal: (cmd: string) => void;
+  clearTerminalInject: () => void;
+  requestSyntaxCheck: (
+    focus?: { path: string; line: number; column: number } | null
+  ) => void;
+  clearSyntaxFocus: () => void;
 };
 
 function uniqueUntitledPath(name: string, openTabs: OpenTab[]): string {
@@ -117,10 +129,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   statusMessage: null,
   loading: false,
   newFileDialogOpen: false,
+  terminalInject: null,
+  syntaxCheckNonce: 0,
+  syntaxFocus: null,
 
   setStatus: (msg) => set({ statusMessage: msg }),
   setNewFileDialogOpen: (open) => set({ newFileDialogOpen: open }),
   openNewFileDialog: () => set({ newFileDialogOpen: true }),
+
+  injectTerminal: (cmd) => set({ terminalInject: cmd }),
+  clearTerminalInject: () => set({ terminalInject: null }),
+  requestSyntaxCheck: (focus = null) =>
+    set((s) => ({
+      syntaxCheckNonce: s.syntaxCheckNonce + 1,
+      syntaxFocus: focus,
+    })),
+  clearSyntaxFocus: () => set({ syntaxFocus: null }),
 
   openFolderViaPicker: async () => {
     if (!supportsDirectoryPicker()) {

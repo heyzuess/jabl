@@ -5,6 +5,8 @@ A VS Code–like browser IDE for **OpenEdge ABL** built with Next.js, Monaco, an
 ## Features
 
 - **Monaco ABL language** — Monarch tokenizer + keyword/snippet/built-in completions
+- **Syntax check** — structural ABL checker (unclosed strings/comments/blocks); **Debug → Check Syntax** or terminal `check [path]`; Monaco squiggles on the active buffer
+- **Simulated debugger** — line-step session with breakpoints (no Progress runtime); **Debug → Start Debugger** or terminal `debug` / `break` / `step` / `continue` / `vars` / `quit`
 - **New File** — create an unsaved tab from Blank, Procedure, Class, or Include templates; Save writes locally (`showSaveFilePicker` or download)
 - **Workspace** — `showDirectoryPicker` when available; `<input webkitdirectory>` fallback (save downloads the file)
 - **Sample project** — `public/samples/abl/` loads automatically so you can try the IDE immediately

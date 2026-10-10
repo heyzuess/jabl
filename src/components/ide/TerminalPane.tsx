@@ -17,6 +17,13 @@ type TerminalPaneProps = {
   accent: string;
 };
 
+type TermApi = {
+  write: (text: string) => void;
+  writeln: (text: string) => void;
+  clear: () => void;
+  printPrompt: () => void;
+};
+
 export function TerminalPane({
   mode,
   editorBg,
@@ -27,6 +34,8 @@ export function TerminalPane({
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const lineRef = useRef("");
+  const apiRef = useRef<TermApi | null>(null);
+  const busyRef = useRef(false);
   const cwdRef = useRef("");
   const terminalMinimized = useLayoutStore((s) => s.minimized.terminal);
 
@@ -68,22 +77,32 @@ export function TerminalPane({
       write(getPrompt(useWorkspaceStore.getState()));
     };
 
+    apiRef.current = { write, writeln, clear, printPrompt };
+
+    const runLine = async (line: string) => {
+      busyRef.current = true;
+      try {
+        await runCommand(line, {
+          getState: () => useWorkspaceStore.getState(),
+          api: { write, writeln, clear },
+        });
+      } finally {
+        busyRef.current = false;
+        printPrompt();
+      }
+    };
+
     term.writeln("JABL project terminal — type 'help' for commands.");
     printPrompt();
 
     term.onData((data) => {
+      if (busyRef.current) return;
       for (const ch of data) {
         if (ch === "\r") {
           term.write("\r\n");
           const line = lineRef.current;
           lineRef.current = "";
-          void (async () => {
-            await runCommand(line, {
-              getState: () => useWorkspaceStore.getState(),
-              api: { write, writeln, clear },
-            });
-            printPrompt();
-          })();
+          void runLine(line);
         } else if (ch === "\u007f") {
           // Backspace
           if (lineRef.current.length > 0) {
@@ -116,9 +135,49 @@ export function TerminalPane({
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
+      apiRef.current = null;
     };
     // Mount once; theme updates handled below
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Menu → terminal inject bridge
+  useEffect(() => {
+    return useWorkspaceStore.subscribe((s, prev) => {
+      const cmd = s.terminalInject;
+      if (!cmd || cmd === prev.terminalInject) return;
+      const term = termRef.current;
+      const api = apiRef.current;
+      if (!term || !api || busyRef.current) {
+        useWorkspaceStore.getState().clearTerminalInject();
+        return;
+      }
+      // Discard any partial typed input, echo injected command, run it
+      if (lineRef.current.length > 0) {
+        term.write("\r\n");
+        lineRef.current = "";
+      } else {
+        // Move to new line after current prompt content if needed — prompt already shown
+      }
+      term.write(`${cmd}\r\n`);
+      useWorkspaceStore.getState().clearTerminalInject();
+      busyRef.current = true;
+      void (async () => {
+        try {
+          await runCommand(cmd, {
+            getState: () => useWorkspaceStore.getState(),
+            api: {
+              write: api.write,
+              writeln: api.writeln,
+              clear: api.clear,
+            },
+          });
+        } finally {
+          busyRef.current = false;
+          api.printPrompt();
+        }
+      })();
+    });
   }, []);
 
   useEffect(() => {
