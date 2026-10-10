@@ -85,17 +85,17 @@ function IdeShellClient() {
         <div className="relative z-0 min-h-0 flex-1">
           <Group orientation="horizontal" className="h-full w-full">
             <Panel
-              defaultSize={24}
-              minSize={16}
-              maxSize={40}
-              className="min-h-0 min-w-[180px] overflow-hidden"
+              defaultSize="22%"
+              minSize="14%"
+              maxSize="40%"
+              className="min-h-0 overflow-hidden"
             >
               <FileExplorer />
             </Panel>
             <ResizeSeparator className="w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
-            <Panel defaultSize={80} minSize={40} className="min-h-0 overflow-hidden">
+            <Panel defaultSize="78%" minSize="40%" className="min-h-0 overflow-hidden">
               <Group orientation="vertical" className="h-full w-full">
-                <Panel defaultSize={72} minSize={30} className="min-h-0 overflow-hidden">
+                <Panel defaultSize="72%" minSize="30%" className="min-h-0 overflow-hidden">
                   <EditorPane
                     applyTheme={applyToMonaco}
                     themeKey={themeKey}
@@ -103,8 +103,8 @@ function IdeShellClient() {
                 </Panel>
                 <ResizeSeparator className="h-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
                 <Panel
-                  defaultSize={28}
-                  minSize={12}
+                  defaultSize="28%"
+                  minSize="12%"
                   collapsible
                   className="min-h-0 overflow-hidden"
                 >
