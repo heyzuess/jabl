@@ -1,0 +1,10 @@
+npm error code EEXIST
+npm error syscall rename
+npm error path /Users/jiberri/.npm/_cacache/tmp/bfca47e5
+npm error dest /Users/jiberri/.npm/_cacache/content-v2/sha512/42/e5/464b9568162b97213e63a8c1fea298e82de48f08463acebbc9d222582f8daccb375a37cc439ea7fe2dc16bc9486405ef8c767551733089c190baeca7b1f3
+npm error errno EEXIST
+npm error Invalid response body while trying to fetch https://registry.npmjs.org/tailwindcss: EACCES: permission denied, rename '/Users/jiberri/.npm/_cacache/tmp/bfca47e5' -> '/Users/jiberri/.npm/_cacache/content-v2/sha512/42/e5/464b9568162b97213e63a8c1fea298e82de48f08463acebbc9d222582f8daccb375a37cc439ea7fe2dc16bc9486405ef8c767551733089c190baeca7b1f3'
+npm error File exists: /Users/jiberri/.npm/_cacache/content-v2/sha512/42/e5/464b9568162b97213e63a8c1fea298e82de48f08463acebbc9d222582f8daccb375a37cc439ea7fe2dc16bc9486405ef8c767551733089c190baeca7b1f3
+npm error Remove the existing file and try again, or run npm
+npm error with --force to overwrite files recklessly.
+npm error A complete log of this run can be found in: /Users/jiberri/.npm/_logs/2026-10-10T18_02_33_439Z-debug-0.log
