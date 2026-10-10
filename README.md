@@ -12,14 +12,15 @@ A VS Code–like browser IDE for **OpenEdge ABL** built with Next.js, Monaco, an
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 20+ (`node -v`)
+- npm 10+ (bundled with Node)
 - A Chromium-based browser for full folder open/save; other browsers can use the folder-input fallback and Samples
 
 ## Run locally
 
 ```bash
 npm install
-npm run dev -- -p 43127
+npm run dev
 ```
 
 Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
@@ -28,8 +29,55 @@ Or production:
 
 ```bash
 npm run build
-npm start -- -p 43127
+npm start
 ```
+
+(`dev` / `start` already bind port `43127`.)
+
+## Troubleshooting: `npm install` fails with `EEXIST` / `EACCES` in `~/.npm/_cacache`
+
+This is a **local npm cache** problem on your machine (corrupted or root-owned cache entries), not a broken dependency in this repo. Typical log lines:
+
+```text
+npm error code EEXIST
+npm error errno EEXIST
+… EACCES: permission denied, rename '…/.npm/_cacache/tmp/…' -> '…/.npm/_cacache/content-v2/…'
+```
+
+### Fix (macOS / Linux)
+
+Run these in a normal terminal (not as root / not with `sudo npm`):
+
+```bash
+# 1) Fix ownership if the cache was ever written by sudo/root
+sudo chown -R "$(whoami)" ~/.npm
+
+# 2) Clear the corrupted cache
+npm cache clean --force
+
+# 3) Retry from the project root
+cd /path/to/jabl
+rm -rf node_modules
+npm install
+```
+
+If it still fails:
+
+```bash
+# Bypass the broken global cache for this install only
+npm install --cache /tmp/npm-cache-jabl
+```
+
+Or reset the whole cache directory (safe; npm will recreate it):
+
+```bash
+rm -rf ~/.npm/_cacache
+npm install
+```
+
+**Do not** use `sudo npm install` in the project — that often re-creates the permission problem.
+
+See [`notes/errors.txt`](notes/errors.txt) for a captured example of this failure.
 
 ## Out of scope
 
