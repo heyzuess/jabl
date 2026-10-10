@@ -1,0 +1,33 @@
+ADD TABLE "Customer"
+  AREA "Schema Area"
+  DESCRIPTION "Customer master"
+  DUMP-NAME "customer"
+
+ADD FIELD "CustNum" OF "Customer" AS integer
+  FORMAT ">>>>9"
+  INITIAL "0"
+  LABEL "Cust #"
+  POSITION 2
+  ORDER 10
+
+ADD FIELD "Name" OF "Customer" AS character
+  FORMAT "x(40)"
+  INITIAL ""
+  LABEL "Name"
+  POSITION 3
+  ORDER 20
+  MAX-WIDTH 40
+
+ADD FIELD "Balance" OF "Customer" AS decimal
+  FORMAT "->>>,>>9.99"
+  INITIAL "0"
+  LABEL "Balance"
+  POSITION 4
+  ORDER 30
+  DECIMALS 2
+
+ADD INDEX "CustNum" ON "Customer"
+  AREA "Schema Area"
+  UNIQUE
+  PRIMARY
+  INDEX-FIELD "CustNum" ASCENDING

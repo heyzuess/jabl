@@ -1,0 +1,13 @@
+/* Sample OpenEdge ABL procedure — Hello World */
+DEFINE VARIABLE cName AS CHARACTER NO-UNDO INITIAL "World".
+
+MESSAGE SUBSTITUTE("Hello, &1!", cName)
+  VIEW-AS ALERT-BOX INFO BUTTONS OK.
+
+PROCEDURE SayHello:
+  DEFINE INPUT PARAMETER pcName AS CHARACTER NO-UNDO.
+  MESSAGE "Hello from procedure:" pcName
+    VIEW-AS ALERT-BOX INFO.
+END PROCEDURE.
+
+RUN SayHello("ABL").
