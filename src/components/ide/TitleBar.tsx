@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  ChevronDown,
   FilePlus,
   FolderOpen,
   Moon,
@@ -12,7 +13,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { NewFileDialog } from "@/components/ide/NewFileDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supportsDirectoryPicker } from "@/lib/workspace/fs-access";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import type { ThemeMode } from "@/lib/theme/themes";
@@ -30,11 +38,11 @@ export function TitleBar({
 }: TitleBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [canPick, setCanPick] = useState(false);
-  const [newFileOpen, setNewFileOpen] = useState(false);
   const openFolderViaPicker = useWorkspaceStore((s) => s.openFolderViaPicker);
   const openFolderViaInput = useWorkspaceStore((s) => s.openFolderViaInput);
   const loadSamples = useWorkspaceStore((s) => s.loadSamples);
   const saveActive = useWorkspaceStore((s) => s.saveActive);
+  const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
   const activePath = useWorkspaceStore((s) => s.activePath);
   const dirty = useWorkspaceStore((s) => s.dirty);
   const rootName = useWorkspaceStore((s) => s.rootName);
@@ -50,6 +58,20 @@ export function TitleBar({
       input.setAttribute("directory", "");
     }
   }, []);
+
+  // Global shortcuts: Ctrl/Cmd+N = New File, Ctrl/Cmd+S = Save (Save also in EditorPane)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === "n") {
+        e.preventDefault();
+        openNewFileDialog();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openNewFileDialog]);
 
   const isDirty = activePath ? !!dirty[activePath] : false;
 
@@ -72,6 +94,57 @@ export function TitleBar({
       <Separator orientation="vertical" className="h-5" />
 
       <div className="flex shrink-0 items-center gap-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 text-xs"
+              />
+            }
+          >
+            File
+            <ChevronDown className="size-3 opacity-70" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-52">
+            <DropdownMenuItem onClick={() => openNewFileDialog()}>
+              <FilePlus className="size-3.5" />
+              New File…
+              <DropdownMenuShortcut>⌘N</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={openFolder}>
+              <FolderOpen className="size-3.5" />
+              Open Folder…
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void loadSamples()}>
+              <Files className="size-3.5" />
+              Load Samples
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={!activePath}
+              onClick={() => void saveActive()}
+            >
+              <Save className="size-3.5" />
+              Save
+              <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
+          title="New File (Ctrl/Cmd+N)"
+          onClick={() => openNewFileDialog()}
+        >
+          <FilePlus className="size-3.5" />
+          New File
+        </Button>
         <Button
           type="button"
           variant="ghost"
@@ -87,7 +160,6 @@ export function TitleBar({
           type="file"
           className="hidden"
           multiple
-          // Applied after mount via effect to avoid SSR attribute mismatches
           onChange={(e) => {
             if (e.target.files?.length) {
               void openFolderViaInput(e.target.files);
@@ -99,7 +171,7 @@ export function TitleBar({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-8 gap-1.5 text-xs"
+          className="hidden h-8 gap-1.5 text-xs sm:inline-flex"
           onClick={() => void loadSamples()}
         >
           <Files className="size-3.5" />
@@ -110,17 +182,8 @@ export function TitleBar({
           variant="ghost"
           size="sm"
           className="h-8 gap-1.5 text-xs"
-          onClick={() => setNewFileOpen(true)}
-        >
-          <FilePlus className="size-3.5" />
-          New File
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1.5 text-xs"
           disabled={!activePath}
+          title="Save (Ctrl/Cmd+S)"
           onClick={() => void saveActive()}
         >
           <Save className="size-3.5" />
@@ -162,8 +225,6 @@ export function TitleBar({
           <span>Theme</span>
         </button>
       </div>
-
-      <NewFileDialog open={newFileOpen} onOpenChange={setNewFileOpen} />
     </header>
   );
 }

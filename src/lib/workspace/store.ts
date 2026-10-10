@@ -37,6 +37,7 @@ export type WorkspaceState = {
   expanded: Set<string>;
   statusMessage: string | null;
   loading: boolean;
+  newFileDialogOpen: boolean;
 
   openFolderViaPicker: () => Promise<void>;
   openFolderViaInput: (files: FileList) => Promise<void>;
@@ -52,6 +53,8 @@ export type WorkspaceState = {
   listAt: (path?: string) => FileNode[];
   readAt: (path: string) => Promise<string>;
   setStatus: (msg: string | null) => void;
+  setNewFileDialogOpen: (open: boolean) => void;
+  openNewFileDialog: () => void;
 };
 
 function uniqueUntitledPath(name: string, openTabs: OpenTab[]): string {
@@ -112,8 +115,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   expanded: new Set<string>(),
   statusMessage: null,
   loading: false,
+  newFileDialogOpen: false,
 
   setStatus: (msg) => set({ statusMessage: msg }),
+  setNewFileDialogOpen: (open) => set({ newFileDialogOpen: open }),
+  openNewFileDialog: () => set({ newFileDialogOpen: true }),
 
   openFolderViaPicker: async () => {
     if (!supportsDirectoryPicker()) {

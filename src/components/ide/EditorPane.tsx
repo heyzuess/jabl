@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
-import { X } from "lucide-react";
+import { FilePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { registerAblLanguage } from "@/lib/abl/register";
 import { MONACO_THEME_NAME } from "@/lib/theme/themes";
 import { useWorkspaceStore } from "@/lib/workspace/store";
@@ -142,19 +143,30 @@ export function EditorPane({ applyTheme, themeKey }: EditorPaneProps) {
 }
 
 function EmptyEditor() {
+  const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
+
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
       <p className="text-lg font-medium text-foreground/80">JABL</p>
       <p className="max-w-md text-sm">
-        Use <span className="text-foreground">New File</span> to start from a
-        blank or ABL template, open a folder, or load Samples — then edit{" "}
+        Create a new file from a template, open a folder, or load Samples — then
+        edit{" "}
         <code className="text-[var(--ide-keyword)]">.p</code>,{" "}
         <code className="text-[var(--ide-keyword)]">.cls</code>, and other ABL
         files.
       </p>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="gap-1.5"
+        onClick={() => openNewFileDialog()}
+      >
+        <FilePlus className="size-3.5" />
+        New File
+      </Button>
       <p className="text-xs opacity-70">
-        Autocomplete: keywords, snippets, and built-in functions · Ctrl/Cmd+S
-        to save
+        File → New File… or Ctrl/Cmd+N · Ctrl/Cmd+S to save
       </p>
     </div>
   );

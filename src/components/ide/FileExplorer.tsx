@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileCode2,
+  FilePlus,
   Folder,
   FolderOpen,
 } from "lucide-react";
@@ -90,11 +91,21 @@ function TreeNode({
 export function FileExplorer() {
   const root = useWorkspaceStore((s) => s.root);
   const loading = useWorkspaceStore((s) => s.loading);
+  const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--ide-sidebar)]">
-      <div className="flex h-8 shrink-0 items-center border-b border-border px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Explorer
+      <div className="flex h-8 shrink-0 items-center justify-between gap-1 border-b border-border px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="px-1">Explorer</span>
+        <button
+          type="button"
+          title="New File (Ctrl/Cmd+N)"
+          aria-label="New File"
+          className="inline-flex size-6 items-center justify-center rounded-md text-foreground hover:bg-accent"
+          onClick={() => openNewFileDialog()}
+        >
+          <FilePlus className="size-3.5" />
+        </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1 pb-4">
         {loading && (
@@ -104,8 +115,9 @@ export function FileExplorer() {
           <div className="space-y-2 px-2 py-3 text-xs text-muted-foreground">
             <p>No folder open.</p>
             <p>
-              Use <span className="text-foreground">Open Folder</span> or{" "}
-              <span className="text-foreground">Samples</span> in the title bar.
+              Use <span className="text-foreground">New File</span>,{" "}
+              <span className="text-foreground">Open Folder</span>, or{" "}
+              <span className="text-foreground">Samples</span>.
             </p>
           </div>
         )}

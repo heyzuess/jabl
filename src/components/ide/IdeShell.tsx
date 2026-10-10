@@ -11,6 +11,7 @@ import { FileExplorer } from "./FileExplorer";
 import { EditorPane } from "./EditorPane";
 import { TerminalPane } from "./TerminalPane";
 import { ThemeSettings } from "./ThemeSettings";
+import { NewFileDialog } from "./NewFileDialog";
 import { useIdeTheme } from "@/hooks/use-theme";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -45,6 +46,8 @@ function IdeShellClient() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const loadSamples = useWorkspaceStore((s) => s.loadSamples);
   const mode = useWorkspaceStore((s) => s.mode);
+  const newFileDialogOpen = useWorkspaceStore((s) => s.newFileDialogOpen);
+  const setNewFileDialogOpen = useWorkspaceStore((s) => s.setNewFileDialogOpen);
 
   useEffect(() => {
     if (hydrated && mode === "none") {
@@ -128,6 +131,10 @@ function IdeShellClient() {
           onUpdate={updateCustom}
           onReset={resetCustom}
           onToggleMode={toggleMode}
+        />
+        <NewFileDialog
+          open={newFileDialogOpen}
+          onOpenChange={setNewFileDialogOpen}
         />
       </div>
     </TooltipProvider>
