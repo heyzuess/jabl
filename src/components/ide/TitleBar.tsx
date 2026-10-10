@@ -15,14 +15,17 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supportsDirectoryPicker } from "@/lib/workspace/fs-access";
 import { useWorkspaceStore } from "@/lib/workspace/store";
+import { useLayoutStore } from "@/lib/workspace/layout-store";
 import type { ThemeMode } from "@/lib/theme/themes";
 
 type TitleBarProps = {
@@ -48,6 +51,17 @@ export function TitleBar({
   const rootName = useWorkspaceStore((s) => s.rootName);
   const statusMessage = useWorkspaceStore((s) => s.statusMessage);
   const fsMode = useWorkspaceStore((s) => s.mode);
+
+  const sidebarVisible = useLayoutStore((s) => s.sidebarVisible);
+  const terminalVisible = useLayoutStore((s) => s.terminalVisible);
+  const sidebarSide = useLayoutStore((s) => s.sidebarSide);
+  const panelPosition = useLayoutStore((s) => s.panelPosition);
+  const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
+  const toggleTerminal = useLayoutStore((s) => s.toggleTerminal);
+  const setSidebarSide = useLayoutStore((s) => s.setSidebarSide);
+  const setPanelPosition = useLayoutStore((s) => s.setPanelPosition);
+  const restoreLayout = useLayoutStore((s) => s.restoreLayout);
+  const maximized = useLayoutStore((s) => s.maximized);
 
   useEffect(() => {
     const pick = supportsDirectoryPicker();
@@ -131,6 +145,80 @@ export function TitleBar({
               Save{isDirty ? " *" : ""}
               <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
             </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 text-xs"
+              />
+            }
+          >
+            View
+            <ChevronDown className="size-3 opacity-70" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-56">
+            <DropdownMenuLabel>Panes</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={sidebarVisible}
+              onCheckedChange={() => toggleSidebar()}
+            >
+              Explorer
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked disabled>
+              Editor
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={terminalVisible}
+              onCheckedChange={() => toggleTerminal()}
+            >
+              Terminal
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Layout</DropdownMenuLabel>
+            <DropdownMenuItem
+              disabled={sidebarSide === "left" && sidebarVisible}
+              onClick={() => setSidebarSide("left")}
+            >
+              Move Explorer Left
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={sidebarSide === "right" && sidebarVisible}
+              onClick={() => setSidebarSide("right")}
+            >
+              Move Explorer Right
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={panelPosition === "bottom" && terminalVisible}
+              onClick={() => setPanelPosition("bottom")}
+            >
+              Move Terminal Bottom
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={panelPosition === "left" && terminalVisible}
+              onClick={() => setPanelPosition("left")}
+            >
+              Move Terminal Left
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={panelPosition === "right" && terminalVisible}
+              onClick={() => setPanelPosition("right")}
+            >
+              Move Terminal Right
+            </DropdownMenuItem>
+            {maximized && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => restoreLayout()}>
+                  Restore Layout
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 

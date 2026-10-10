@@ -6,7 +6,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { getPrompt, runCommand } from "@/lib/terminal/commands";
 import { useWorkspaceStore } from "@/lib/workspace/store";
+import { useLayoutStore } from "@/lib/workspace/layout-store";
 import type { ThemeMode } from "@/lib/theme/themes";
+import { PaneChrome } from "./PaneChrome";
 
 type TerminalPaneProps = {
   mode: ThemeMode;
@@ -26,6 +28,7 @@ export function TerminalPane({
   const fitRef = useRef<FitAddon | null>(null);
   const lineRef = useRef("");
   const cwdRef = useRef("");
+  const terminalMinimized = useLayoutStore((s) => s.minimized.terminal);
 
   useEffect(() => {
     cwdRef.current = useWorkspaceStore.getState().cwd;
@@ -131,10 +134,15 @@ export function TerminalPane({
 
   return (
     <div className="flex h-full flex-col bg-[var(--ide-editor-bg)]">
-      <div className="flex h-7 items-center border-b border-border px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Terminal
-      </div>
-      <div ref={containerRef} className="min-h-0 flex-1 px-1 py-1" />
+      <PaneChrome pane="terminal" title="Terminal" />
+      <div
+        ref={containerRef}
+        className={
+          terminalMinimized
+            ? "hidden"
+            : "min-h-0 flex-1 px-1 py-1"
+        }
+      />
     </div>
   );
 }

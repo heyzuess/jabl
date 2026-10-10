@@ -11,7 +11,9 @@ import {
 import { cn } from "@/lib/utils";
 import { isAblFile } from "@/lib/abl/keywords";
 import { useWorkspaceStore } from "@/lib/workspace/store";
+import { useLayoutStore } from "@/lib/workspace/layout-store";
 import type { FileNode } from "@/lib/workspace/types";
+import { PaneChrome } from "./PaneChrome";
 
 function TreeNode({
   node,
@@ -92,37 +94,44 @@ export function FileExplorer() {
   const root = useWorkspaceStore((s) => s.root);
   const loading = useWorkspaceStore((s) => s.loading);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
+  const explorerMinimized = useLayoutStore((s) => s.minimized.explorer);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--ide-sidebar)]">
-      <div className="flex h-8 shrink-0 items-center justify-between gap-1 border-b border-border px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <span className="px-1">Explorer</span>
-        <button
-          type="button"
-          title="New File (Ctrl/Cmd+N)"
-          aria-label="New File"
-          className="inline-flex size-6 items-center justify-center rounded-md text-foreground hover:bg-accent"
-          onClick={() => openNewFileDialog()}
-        >
-          <FilePlus className="size-3.5" />
-        </button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-1 pb-4">
-        {loading && (
-          <p className="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
-        )}
-        {!loading && !root && (
-          <div className="space-y-2 px-2 py-3 text-xs text-muted-foreground">
-            <p>No folder open.</p>
-            <p>
-              Use <span className="text-foreground">New File</span>,{" "}
-              <span className="text-foreground">Open Folder</span>, or{" "}
-              <span className="text-foreground">Samples</span>.
-            </p>
-          </div>
-        )}
-        {root && <TreeNode node={root} depth={0} />}
-      </div>
+      <PaneChrome
+        pane="explorer"
+        title="Explorer"
+        actions={
+          <button
+            type="button"
+            title="New File (Ctrl/Cmd+N)"
+            aria-label="New File"
+            className="inline-flex size-6 items-center justify-center rounded-md text-foreground hover:bg-accent"
+            onClick={() => openNewFileDialog()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <FilePlus className="size-3.5" />
+          </button>
+        }
+      />
+      {!explorerMinimized && (
+        <div className="min-h-0 flex-1 overflow-y-auto p-1 pb-4">
+          {loading && (
+            <p className="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
+          )}
+          {!loading && !root && (
+            <div className="space-y-2 px-2 py-3 text-xs text-muted-foreground">
+              <p>No folder open.</p>
+              <p>
+                Use <span className="text-foreground">New File</span>,{" "}
+                <span className="text-foreground">Open Folder</span>, or{" "}
+                <span className="text-foreground">Samples</span>.
+              </p>
+            </div>
+          )}
+          {root && <TreeNode node={root} depth={0} />}
+        </div>
+      )}
     </div>
   );
 }

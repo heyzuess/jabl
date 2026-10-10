@@ -46,6 +46,7 @@ export type WorkspaceState = {
   createUntitledFile: (input: CreateUntitledInput) => void;
   setActivePath: (path: string) => void;
   closeTab: (path: string) => void;
+  reorderTabs: (fromIndex: number, toIndex: number) => void;
   updateBuffer: (path: string, value: string) => void;
   saveActive: () => Promise<void>;
   toggleExpanded: (path: string) => void;
@@ -296,6 +297,23 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       buffers: nextBuffers,
       dirty: nextDirty,
     });
+  },
+
+  reorderTabs: (fromIndex, toIndex) => {
+    const { openTabs } = get();
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= openTabs.length ||
+      toIndex >= openTabs.length
+    ) {
+      return;
+    }
+    const next = [...openTabs];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    set({ openTabs: next });
   },
 
   updateBuffer: (path, value) => {

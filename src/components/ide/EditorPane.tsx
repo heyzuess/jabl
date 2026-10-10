@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { FilePlus, X } from "lucide-react";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { registerAblLanguage } from "@/lib/abl/register";
 import { MONACO_THEME_NAME } from "@/lib/theme/themes";
 import { useWorkspaceStore } from "@/lib/workspace/store";
+import { PaneChrome } from "./PaneChrome";
 
 type EditorPaneProps = {
   applyTheme: (monaco: typeof Monaco) => void;
@@ -25,6 +26,9 @@ export function EditorPane({ applyTheme, themeKey }: EditorPaneProps) {
   const closeTab = useWorkspaceStore((s) => s.closeTab);
   const updateBuffer = useWorkspaceStore((s) => s.updateBuffer);
   const saveActive = useWorkspaceStore((s) => s.saveActive);
+  const reorderTabs = useWorkspaceStore((s) => s.reorderTabs);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
 
   const activeTab = openTabs.find((t) => t.path === activePath);
   const value = activePath ? (buffers[activePath] ?? "") : "";
@@ -57,22 +61,58 @@ export function EditorPane({ applyTheme, themeKey }: EditorPaneProps) {
 
   return (
     <div className="flex h-full flex-col bg-[var(--ide-editor-bg)]">
+      <PaneChrome pane="editor" title="Editor" editorMode />
       <div className="flex h-9 shrink-0 items-end gap-px overflow-x-auto border-b border-border bg-[var(--ide-chrome)]">
         {openTabs.length === 0 && (
           <div className="flex h-full items-center px-3 text-xs text-muted-foreground">
             No file open
           </div>
         )}
-        {openTabs.map((tab) => {
+        {openTabs.map((tab, index) => {
           const active = tab.path === activePath;
           return (
             <div
               key={tab.path}
+              draggable
+              onDragStart={(e) => {
+                setDragIndex(index);
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", String(index));
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                setOverIndex(index);
+              }}
+              onDragLeave={() => {
+                setOverIndex((current) =>
+                  current === index ? null : current
+                );
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const from =
+                  dragIndex ??
+                  Number(e.dataTransfer.getData("text/plain"));
+                if (!Number.isNaN(from) && from !== index) {
+                  reorderTabs(from, index);
+                }
+                setDragIndex(null);
+                setOverIndex(null);
+              }}
+              onDragEnd={() => {
+                setDragIndex(null);
+                setOverIndex(null);
+              }}
               className={cn(
-                "group flex h-8 max-w-[180px] items-center gap-1 border-r border-border px-2 text-xs",
+                "group flex h-8 max-w-[180px] cursor-grab items-center gap-1 border-r border-border px-2 text-xs active:cursor-grabbing",
                 active
                   ? "bg-[var(--ide-editor-bg)] text-foreground"
-                  : "bg-transparent text-muted-foreground hover:bg-accent/40"
+                  : "bg-transparent text-muted-foreground hover:bg-accent/40",
+                overIndex === index &&
+                  dragIndex !== null &&
+                  dragIndex !== index &&
+                  "ring-1 ring-inset ring-[var(--ide-accent)]"
               )}
             >
               <button
