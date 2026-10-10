@@ -15,6 +15,34 @@ import {
   type ThemeMode,
 } from "@/lib/theme/themes";
 
+function withModeDefaults(
+  prev: PersistedTheme,
+  mode: ThemeMode
+): PersistedTheme {
+  const defaults =
+    mode === "dark" ? DEFAULT_DARK_CUSTOM : DEFAULT_LIGHT_CUSTOM;
+  return {
+    mode,
+    custom: {
+      ...prev.custom,
+      editorBackground:
+        prev.custom.editorBackground ===
+          (prev.mode === "dark"
+            ? DEFAULT_DARK_CUSTOM.editorBackground
+            : DEFAULT_LIGHT_CUSTOM.editorBackground)
+          ? defaults.editorBackground
+          : prev.custom.editorBackground,
+      editorForeground:
+        prev.custom.editorForeground ===
+          (prev.mode === "dark"
+            ? DEFAULT_DARK_CUSTOM.editorForeground
+            : DEFAULT_LIGHT_CUSTOM.editorForeground)
+          ? defaults.editorForeground
+          : prev.custom.editorForeground,
+    },
+  };
+}
+
 export function useIdeTheme() {
   const [theme, setTheme] = useState<PersistedTheme>({
     mode: "dark",
@@ -35,54 +63,52 @@ export function useIdeTheme() {
     applyCssVars(next.mode, next.custom);
   }, []);
 
-  const setMode = useCallback(
-    (mode: ThemeMode) => {
-      const defaults =
-        mode === "dark" ? DEFAULT_DARK_CUSTOM : DEFAULT_LIGHT_CUSTOM;
-      // Keep custom token colors when toggling, but swap bg/fg defaults if still on previous defaults
-      persist({
-        mode,
-        custom: {
-          ...theme.custom,
-          editorBackground:
-            theme.custom.editorBackground ===
-              (theme.mode === "dark"
-                ? DEFAULT_DARK_CUSTOM.editorBackground
-                : DEFAULT_LIGHT_CUSTOM.editorBackground)
-              ? defaults.editorBackground
-              : theme.custom.editorBackground,
-          editorForeground:
-            theme.custom.editorForeground ===
-              (theme.mode === "dark"
-                ? DEFAULT_DARK_CUSTOM.editorForeground
-                : DEFAULT_LIGHT_CUSTOM.editorForeground)
-              ? defaults.editorForeground
-              : theme.custom.editorForeground,
-        },
-      });
-    },
-    [persist, theme]
-  );
+  const setMode = useCallback((mode: ThemeMode) => {
+    setTheme((prev) => {
+      const next = withModeDefaults(prev, mode);
+      saveTheme(next);
+      applyCssVars(next.mode, next.custom);
+      return next;
+    });
+  }, []);
 
   const toggleMode = useCallback(() => {
-    setMode(theme.mode === "dark" ? "light" : "dark");
-  }, [setMode, theme.mode]);
+    setTheme((prev) => {
+      const next = withModeDefaults(
+        prev,
+        prev.mode === "dark" ? "light" : "dark"
+      );
+      saveTheme(next);
+      applyCssVars(next.mode, next.custom);
+      return next;
+    });
+  }, []);
 
-  const updateCustom = useCallback(
-    (partial: Partial<ThemeCustomization>) => {
-      persist({
-        mode: theme.mode,
-        custom: { ...theme.custom, ...partial },
-      });
-    },
-    [persist, theme]
-  );
+  const updateCustom = useCallback((partial: Partial<ThemeCustomization>) => {
+    setTheme((prev) => {
+      const next: PersistedTheme = {
+        mode: prev.mode,
+        custom: { ...prev.custom, ...partial },
+      };
+      saveTheme(next);
+      applyCssVars(next.mode, next.custom);
+      return next;
+    });
+  }, []);
 
   const resetCustom = useCallback(() => {
-    const defaults =
-      theme.mode === "dark" ? DEFAULT_DARK_CUSTOM : DEFAULT_LIGHT_CUSTOM;
-    persist({ mode: theme.mode, custom: { ...defaults } });
-  }, [persist, theme.mode]);
+    setTheme((prev) => {
+      const defaults =
+        prev.mode === "dark" ? DEFAULT_DARK_CUSTOM : DEFAULT_LIGHT_CUSTOM;
+      const next: PersistedTheme = {
+        mode: prev.mode,
+        custom: { ...defaults },
+      };
+      saveTheme(next);
+      applyCssVars(next.mode, next.custom);
+      return next;
+    });
+  }, []);
 
   const applyToMonaco = useCallback(
     (monaco: typeof Monaco) => {

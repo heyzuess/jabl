@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FolderOpen,
   Moon,
@@ -27,6 +27,7 @@ export function TitleBar({
   onOpenThemeSettings,
 }: TitleBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [canPick, setCanPick] = useState(false);
   const openFolderViaPicker = useWorkspaceStore((s) => s.openFolderViaPicker);
   const openFolderViaInput = useWorkspaceStore((s) => s.openFolderViaInput);
   const loadSamples = useWorkspaceStore((s) => s.loadSamples);
@@ -37,12 +38,26 @@ export function TitleBar({
   const statusMessage = useWorkspaceStore((s) => s.statusMessage);
   const fsMode = useWorkspaceStore((s) => s.mode);
 
+  useEffect(() => {
+    const pick = supportsDirectoryPicker();
+    setCanPick(pick);
+    const input = inputRef.current;
+    if (input && !pick) {
+      input.setAttribute("webkitdirectory", "");
+      input.setAttribute("directory", "");
+    }
+  }, []);
+
   const isDirty = activePath ? !!dirty[activePath] : false;
-  const canPick = typeof window !== "undefined" && supportsDirectoryPicker();
+
+  const openFolder = () => {
+    if (canPick) void openFolderViaPicker();
+    else inputRef.current?.click();
+  };
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-[var(--ide-chrome)] px-3">
-      <div className="flex items-center gap-2 pr-2">
+    <header className="relative z-20 flex h-11 shrink-0 items-center gap-2 border-b border-border bg-[var(--ide-chrome)] px-3">
+      <div className="flex shrink-0 items-center gap-2 pr-2">
         <span className="text-sm font-semibold tracking-tight text-foreground">
           JABL
         </span>
@@ -53,35 +68,23 @@ export function TitleBar({
 
       <Separator orientation="vertical" className="h-5" />
 
-      <div className="flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1">
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           className="h-8 gap-1.5 text-xs"
-          onClick={() => {
-            if (canPick) void openFolderViaPicker();
-            else inputRef.current?.click();
-          }}
+          onClick={openFolder}
         >
           <FolderOpen className="size-3.5" />
           Open Folder
         </Button>
-        {!canPick && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 text-xs"
-            onClick={() => inputRef.current?.click()}
-          >
-            Browse…
-          </Button>
-        )}
         <input
           ref={inputRef}
           type="file"
           className="hidden"
           multiple
-          {...{ webkitdirectory: "", directory: "" }}
+          // Applied after mount via effect to avoid SSR attribute mismatches
           onChange={(e) => {
             if (e.target.files?.length) {
               void openFolderViaInput(e.target.files);
@@ -90,6 +93,7 @@ export function TitleBar({
           }}
         />
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           className="h-8 gap-1.5 text-xs"
@@ -99,6 +103,7 @@ export function TitleBar({
           Samples
         </Button>
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           className="h-8 gap-1.5 text-xs"
@@ -112,22 +117,18 @@ export function TitleBar({
       </div>
 
       <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2">
-        {rootName && (
-          <span className="hidden truncate text-xs text-muted-foreground md:inline">
+        {(rootName || statusMessage) && (
+          <span className="hidden min-w-0 truncate text-xs text-muted-foreground md:inline">
             {rootName}
             {fsMode === "readonly-input" ? " (read-only)" : ""}
             {statusMessage ? ` · ${statusMessage}` : ""}
           </span>
         )}
-        {!rootName && statusMessage && (
-          <span className="hidden truncate text-xs text-muted-foreground md:inline">
-            {statusMessage}
-          </span>
-        )}
-        <Button
-          variant="ghost"
-          size="icon-sm"
+        <button
+          type="button"
           aria-label="Toggle theme"
+          title={mode === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted"
           onClick={onToggleTheme}
         >
           {mode === "dark" ? (
@@ -135,15 +136,16 @@ export function TitleBar({
           ) : (
             <Moon className="size-3.5" />
           )}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
+        </button>
+        <button
+          type="button"
           aria-label="Theme settings"
+          title="Theme settings"
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted"
           onClick={onOpenThemeSettings}
         >
           <Palette className="size-3.5" />
-        </Button>
+        </button>
       </div>
     </header>
   );

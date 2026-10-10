@@ -16,6 +16,24 @@ import { useWorkspaceStore } from "@/lib/workspace/store";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export function IdeShell() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="flex h-dvh items-center justify-center bg-[#1e1e1e] text-sm text-[#d4d4d4]">
+        Loading JABL…
+      </div>
+    );
+  }
+
+  return <IdeShellClient />;
+}
+
+function IdeShellClient() {
   const {
     theme,
     hydrated,
@@ -40,6 +58,7 @@ export function IdeShell() {
     <TooltipProvider>
       <div
         className="flex h-dvh flex-col overflow-hidden bg-background text-foreground"
+        data-theme={theme.mode}
         style={
           {
             "--ide-chrome":
@@ -51,6 +70,9 @@ export function IdeShell() {
             "--ide-accent": theme.custom.accent,
             "--ide-comment": theme.custom.comment,
             "--ide-keyword": theme.custom.keyword,
+            backgroundColor:
+              theme.mode === "dark" ? "#1e1e1e" : "#ffffff",
+            color: theme.mode === "dark" ? "#d4d4d4" : "#1e1e1e",
           } as CSSProperties
         }
       >
@@ -60,27 +82,32 @@ export function IdeShell() {
           onOpenThemeSettings={() => setSettingsOpen(true)}
         />
 
-        <div className="min-h-0 flex-1">
-          <Group orientation="horizontal" className="h-full">
+        <div className="relative z-0 min-h-0 flex-1">
+          <Group orientation="horizontal" className="h-full w-full">
             <Panel
-              defaultSize={18}
+              defaultSize={20}
               minSize={12}
               maxSize={40}
-              className="min-w-[140px]"
+              className="min-h-0 min-w-[140px] overflow-hidden"
             >
               <FileExplorer />
             </Panel>
             <ResizeSeparator className="w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
-            <Panel defaultSize={82} minSize={40}>
-              <Group orientation="vertical" className="h-full">
-                <Panel defaultSize={72} minSize={30}>
+            <Panel defaultSize={80} minSize={40} className="min-h-0 overflow-hidden">
+              <Group orientation="vertical" className="h-full w-full">
+                <Panel defaultSize={72} minSize={30} className="min-h-0 overflow-hidden">
                   <EditorPane
                     applyTheme={applyToMonaco}
                     themeKey={themeKey}
                   />
                 </Panel>
                 <ResizeSeparator className="h-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
-                <Panel defaultSize={28} minSize={12} collapsible>
+                <Panel
+                  defaultSize={28}
+                  minSize={12}
+                  collapsible
+                  className="min-h-0 overflow-hidden"
+                >
                   <TerminalPane
                     mode={theme.mode}
                     editorBg={theme.custom.editorBackground}
@@ -95,7 +122,7 @@ export function IdeShell() {
 
         <ThemeSettings
           open={settingsOpen}
-          onOpenChange={setSettingsOpen}
+          onOpenChange={(open) => setSettingsOpen(open)}
           mode={theme.mode}
           custom={theme.custom}
           onUpdate={updateCustom}

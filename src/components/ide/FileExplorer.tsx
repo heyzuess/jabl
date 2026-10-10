@@ -1,7 +1,12 @@
 "use client";
 
-import { ChevronDown, ChevronRight, FileCode2, Folder, FolderOpen } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  ChevronDown,
+  ChevronRight,
+  FileCode2,
+  Folder,
+  FolderOpen,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAblFile } from "@/lib/abl/keywords";
 import { useWorkspaceStore } from "@/lib/workspace/store";
@@ -14,15 +19,11 @@ function TreeNode({
   node: FileNode;
   depth: number;
 }) {
-  const expanded = useWorkspaceStore((s) => s.expanded);
+  const isOpen = useWorkspaceStore((s) => s.expanded.has(node.path));
   const toggleExpanded = useWorkspaceStore((s) => s.toggleExpanded);
   const openFile = useWorkspaceStore((s) => s.openFile);
-  const activePath = useWorkspaceStore((s) => s.activePath);
-  const dirty = useWorkspaceStore((s) => s.dirty);
-
-  const isOpen = expanded.has(node.path);
-  const isActive = activePath === node.path;
-  const isDirty = !!dirty[node.path];
+  const isActive = useWorkspaceStore((s) => s.activePath === node.path);
+  const isDirty = useWorkspaceStore((s) => !!s.dirty[node.path]);
   const abl = node.kind === "file" && isAblFile(node.name);
 
   if (node.kind === "directory") {
@@ -66,7 +67,11 @@ function TreeNode({
         abl && !isActive && "text-[var(--ide-keyword)]"
       )}
       style={{ paddingLeft: 4 + depth * 12 + 14 }}
-      onClick={() => void openFile(node.path)}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void openFile(node.path);
+      }}
     >
       <FileCode2
         className={cn(
@@ -87,28 +92,25 @@ export function FileExplorer() {
   const loading = useWorkspaceStore((s) => s.loading);
 
   return (
-    <div className="flex h-full flex-col bg-[var(--ide-sidebar)]">
-      <div className="flex h-8 items-center border-b border-border px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--ide-sidebar)]">
+      <div className="flex h-8 shrink-0 items-center border-b border-border px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         Explorer
       </div>
-      <ScrollArea className="flex-1">
-        <div className="p-1 pb-4">
-          {loading && (
-            <p className="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
-          )}
-          {!loading && !root && (
-            <div className="space-y-2 px-2 py-3 text-xs text-muted-foreground">
-              <p>No folder open.</p>
-              <p>
-                Use <span className="text-foreground">Open Folder</span> or{" "}
-                <span className="text-foreground">Samples</span> in the title
-                bar.
-              </p>
-            </div>
-          )}
-          {root && <TreeNode node={root} depth={0} />}
-        </div>
-      </ScrollArea>
+      <div className="min-h-0 flex-1 overflow-y-auto p-1 pb-4">
+        {loading && (
+          <p className="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
+        )}
+        {!loading && !root && (
+          <div className="space-y-2 px-2 py-3 text-xs text-muted-foreground">
+            <p>No folder open.</p>
+            <p>
+              Use <span className="text-foreground">Open Folder</span> or{" "}
+              <span className="text-foreground">Samples</span> in the title bar.
+            </p>
+          </div>
+        )}
+        {root && <TreeNode node={root} depth={0} />}
+      </div>
     </div>
   );
 }

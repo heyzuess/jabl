@@ -196,14 +196,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   openFile: async (path) => {
     const { root, buffers, openTabs } = get();
     const node = findNode(root, path);
-    if (!node || node.kind !== "file") return;
+    if (!node || node.kind !== "file") {
+      set({ statusMessage: `File not found: ${path}` });
+      return;
+    }
 
     let content = buffers[path];
     if (content == null) {
       try {
         content = await readAttachedFile(node);
       } catch (err) {
-        set({ statusMessage: `Cannot open ${path}: ${(err as Error).message}` });
+        set({
+          statusMessage: `Cannot open ${path}: ${(err as Error).message}`,
+        });
         return;
       }
     }
@@ -218,6 +223,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       buffers: { ...get().buffers, [path]: content },
       openTabs: already ? openTabs : [...openTabs, tab],
       activePath: path,
+      statusMessage: `Opened ${node.name}`,
     });
   },
 
