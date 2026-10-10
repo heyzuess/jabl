@@ -1,0 +1,5 @@
+[future]
+- Real OS shell / OpenEdge compiler / Progress runtime
+- Language Server Protocol / full semantic analysis
+- Electron/desktop packaging
+- Multi-user auth or cloud sync
