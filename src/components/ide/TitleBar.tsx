@@ -128,7 +128,7 @@ export function TitleBar({
           type="button"
           aria-label="Toggle theme"
           title={mode === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-foreground hover:bg-muted"
           onClick={onToggleTheme}
         >
           {mode === "dark" ? (
@@ -136,15 +136,17 @@ export function TitleBar({
           ) : (
             <Moon className="size-3.5" />
           )}
+          <span>{mode === "dark" ? "Light" : "Dark"}</span>
         </button>
         <button
           type="button"
           aria-label="Theme settings"
           title="Theme settings"
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-foreground hover:bg-muted"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-foreground hover:bg-muted"
           onClick={onOpenThemeSettings}
         >
           <Palette className="size-3.5" />
+          <span>Theme</span>
         </button>
       </div>
     </header>
