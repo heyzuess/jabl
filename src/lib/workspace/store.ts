@@ -9,10 +9,12 @@ import {
   listDirectory,
   normalizePath,
   pickDirectory,
+  pickOpenFiles,
   readAttachedFile,
   readFileHandle,
   saveTextFileLocally,
   supportsDirectoryPicker,
+  supportsOpenFilePicker,
   treeFromFileList,
   walkDirectory,
   writeFileHandle,
@@ -47,6 +49,8 @@ export type WorkspaceState = {
 
   openFolderViaPicker: () => Promise<void>;
   openFolderViaInput: (files: FileList) => Promise<void>;
+  openLocalFileViaPicker: () => Promise<void>;
+  openLocalFilesViaInput: (files: FileList) => Promise<void>;
   loadSamples: () => Promise<void>;
   openFile: (path: string) => Promise<void>;
   createUntitledFile: (input: CreateUntitledInput) => void;
@@ -83,6 +87,23 @@ function uniqueUntitledPath(name: string, openTabs: OpenTab[]): string {
   while (used.has(candidate)) {
     n += 1;
     candidate = `untitled/${stem}-${n}${ext}`;
+  }
+  return candidate;
+}
+
+function uniqueLocalPath(name: string, openTabs: OpenTab[]): string {
+  const safe = name.trim() || "untitled.p";
+  const base = safe.includes("/") ? safe.split("/").pop()! : safe;
+  const dot = base.lastIndexOf(".");
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const ext = dot > 0 ? base.slice(dot) : "";
+
+  let candidate = `local/${base}`;
+  let n = 1;
+  const used = new Set(openTabs.map((t) => t.path));
+  while (used.has(candidate)) {
+    n += 1;
+    candidate = `local/${stem}-${n}${ext}`;
   }
   return candidate;
 }
@@ -218,6 +239,103 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       set({
         loading: false,
         statusMessage: `Failed to load folder: ${(err as Error).message}`,
+      });
+    }
+  },
+
+  openLocalFileViaPicker: async () => {
+    if (!supportsOpenFilePicker()) {
+      set({
+        statusMessage:
+          "File picker not available — use the fallback Open File control.",
+      });
+      return;
+    }
+    set({ statusMessage: "Opening file…" });
+    try {
+      const handles = await pickOpenFiles(true);
+      if (!handles?.length) {
+        set({ statusMessage: null });
+        return;
+      }
+
+      let openTabs = [...get().openTabs];
+      const buffers = { ...get().buffers };
+      const dirty = { ...get().dirty };
+      let lastPath: string | null = null;
+      let opened = 0;
+
+      for (const handle of handles) {
+        const content = await readFileHandle(handle);
+        const path = uniqueLocalPath(handle.name, openTabs);
+        const tab: OpenTab = {
+          path,
+          name: handle.name,
+          language: languageIdForPath(path),
+          fileHandle: handle,
+        };
+        openTabs = [...openTabs, tab];
+        buffers[path] = content;
+        dirty[path] = false;
+        lastPath = path;
+        opened += 1;
+      }
+
+      set({
+        openTabs,
+        buffers,
+        dirty,
+        activePath: lastPath,
+        statusMessage:
+          opened === 1
+            ? `Opened ${openTabs[openTabs.length - 1]?.name}`
+            : `Opened ${opened} files`,
+      });
+    } catch (err) {
+      set({
+        statusMessage: `Failed to open file: ${(err as Error).message}`,
+      });
+    }
+  },
+
+  openLocalFilesViaInput: async (files) => {
+    if (!files.length) return;
+    set({ statusMessage: "Opening file…" });
+    try {
+      let openTabs = [...get().openTabs];
+      const buffers = { ...get().buffers };
+      const dirty = { ...get().dirty };
+      let lastPath: string | null = null;
+      let opened = 0;
+
+      for (const file of Array.from(files)) {
+        const content = await file.text();
+        const path = uniqueLocalPath(file.name, openTabs);
+        const tab: OpenTab = {
+          path,
+          name: file.name,
+          language: languageIdForPath(path),
+        };
+        openTabs = [...openTabs, tab];
+        buffers[path] = content;
+        dirty[path] = false;
+        lastPath = path;
+        opened += 1;
+      }
+
+      set({
+        openTabs,
+        buffers,
+        dirty,
+        activePath: lastPath,
+        statusMessage:
+          opened === 1
+            ? `Opened ${openTabs[openTabs.length - 1]?.name}`
+            : `Opened ${opened} files`,
+      });
+    } catch (err) {
+      set({
+        statusMessage: `Failed to open file: ${(err as Error).message}`,
       });
     }
   },

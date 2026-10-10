@@ -198,6 +198,38 @@ export function supportsSaveFilePicker(): boolean {
   );
 }
 
+export function supportsOpenFilePicker(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.showOpenFilePicker === "function"
+  );
+}
+
+const ABL_OPEN_TYPES = [
+  {
+    description: "OpenEdge ABL",
+    accept: {
+      "text/plain": [".p", ".w", ".i", ".cls", ".df", ".abl", ".txt", ".md"],
+    },
+  },
+];
+
+/** Pick one or more local files via File System Access API. */
+export async function pickOpenFiles(
+  multiple = true
+): Promise<FileSystemFileHandle[] | null> {
+  if (!supportsOpenFilePicker()) return null;
+  try {
+    return await window.showOpenFilePicker!({
+      multiple,
+      types: ABL_OPEN_TYPES,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") return null;
+    throw err;
+  }
+}
+
 export type LocalSaveResult = {
   name: string;
   handle?: FileSystemFileHandle;

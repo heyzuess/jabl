@@ -5,6 +5,7 @@ import {
   Bug,
   ChevronDown,
   FilePlus,
+  FileUp,
   FolderOpen,
   Moon,
   Palette,
@@ -27,7 +28,10 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supportsDirectoryPicker } from "@/lib/workspace/fs-access";
+import {
+  supportsDirectoryPicker,
+  supportsOpenFilePicker,
+} from "@/lib/workspace/fs-access";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { useLayoutStore } from "@/lib/workspace/layout-store";
 import type { ThemeMode } from "@/lib/theme/themes";
@@ -43,10 +47,22 @@ export function TitleBar({
   onToggleTheme,
   onOpenThemeSettings,
 }: TitleBarProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [canPick, setCanPick] = useState(false);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [canPickFolder] = useState(() =>
+    typeof window !== "undefined" ? supportsDirectoryPicker() : false
+  );
+  const [canPickFile] = useState(() =>
+    typeof window !== "undefined" ? supportsOpenFilePicker() : false
+  );
   const openFolderViaPicker = useWorkspaceStore((s) => s.openFolderViaPicker);
   const openFolderViaInput = useWorkspaceStore((s) => s.openFolderViaInput);
+  const openLocalFileViaPicker = useWorkspaceStore(
+    (s) => s.openLocalFileViaPicker
+  );
+  const openLocalFilesViaInput = useWorkspaceStore(
+    (s) => s.openLocalFilesViaInput
+  );
   const loadSamples = useWorkspaceStore((s) => s.loadSamples);
   const saveActive = useWorkspaceStore((s) => s.saveActive);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
@@ -71,16 +87,14 @@ export function TitleBar({
   const maximized = useLayoutStore((s) => s.maximized);
 
   useEffect(() => {
-    const pick = supportsDirectoryPicker();
-    setCanPick(pick);
-    const input = inputRef.current;
-    if (input && !pick) {
-      input.setAttribute("webkitdirectory", "");
-      input.setAttribute("directory", "");
+    const folderInput = folderInputRef.current;
+    if (folderInput && !canPickFolder) {
+      folderInput.setAttribute("webkitdirectory", "");
+      folderInput.setAttribute("directory", "");
     }
-  }, []);
+  }, [canPickFolder]);
 
-  // Global shortcuts: Ctrl/Cmd+N = New File (Save also handled in EditorPane)
+  // Global shortcuts: Ctrl/Cmd+N = New File, Ctrl/Cmd+O = Open File
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -88,17 +102,26 @@ export function TitleBar({
       if (key === "n") {
         e.preventDefault();
         openNewFileDialog();
+      } else if (key === "o") {
+        e.preventDefault();
+        if (canPickFile) void openLocalFileViaPicker();
+        else fileInputRef.current?.click();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openNewFileDialog]);
+  }, [openNewFileDialog, canPickFile, openLocalFileViaPicker]);
+
+  const openLocalFile = () => {
+    if (canPickFile) void openLocalFileViaPicker();
+    else fileInputRef.current?.click();
+  };
 
   const isDirty = activePath ? !!dirty[activePath] : false;
 
   const openFolder = () => {
-    if (canPick) void openFolderViaPicker();
-    else inputRef.current?.click();
+    if (canPickFolder) void openFolderViaPicker();
+    else folderInputRef.current?.click();
   };
 
   return (
@@ -134,6 +157,11 @@ export function TitleBar({
               <FilePlus className="size-3.5" />
               New File…
               <DropdownMenuShortcut>⌘N</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={openLocalFile}>
+              <FileUp className="size-3.5" />
+              Open File…
+              <DropdownMenuShortcut>⌘O</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={openFolder}>
               <FolderOpen className="size-3.5" />
@@ -266,13 +294,26 @@ export function TitleBar({
         </DropdownMenu>
 
         <input
-          ref={inputRef}
+          ref={folderInputRef}
           type="file"
           className="hidden"
           multiple
           onChange={(e) => {
             if (e.target.files?.length) {
               void openFolderViaInput(e.target.files);
+              e.target.value = "";
+            }
+          }}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          multiple
+          accept=".p,.w,.i,.cls,.df,.abl,.txt,.md,.json,.xml,.sql,.css,.js,.ts,.tsx,.jsx"
+          onChange={(e) => {
+            if (e.target.files?.length) {
+              void openLocalFilesViaInput(e.target.files);
               e.target.value = "";
             }
           }}
