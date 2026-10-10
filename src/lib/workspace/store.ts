@@ -2,8 +2,8 @@
 
 import { create } from "zustand";
 import { languageIdForPath } from "@/lib/abl/register";
+import { languageForFilename } from "@/lib/abl/templates";
 import {
-  downloadTextFile,
   findNode,
   isTextFile,
   listDirectory,
@@ -11,12 +11,19 @@ import {
   pickDirectory,
   readAttachedFile,
   readFileHandle,
+  saveTextFileLocally,
   supportsDirectoryPicker,
   treeFromFileList,
   walkDirectory,
   writeFileHandle,
 } from "./fs-access";
 import type { FileNode, FsMode, OpenTab } from "./types";
+
+export type CreateUntitledInput = {
+  name: string;
+  content: string;
+  language?: string;
+};
 
 export type WorkspaceState = {
   mode: FsMode;
@@ -35,6 +42,7 @@ export type WorkspaceState = {
   openFolderViaInput: (files: FileList) => Promise<void>;
   loadSamples: () => Promise<void>;
   openFile: (path: string) => Promise<void>;
+  createUntitledFile: (input: CreateUntitledInput) => void;
   setActivePath: (path: string) => void;
   closeTab: (path: string) => void;
   updateBuffer: (path: string, value: string) => void;
@@ -45,6 +53,23 @@ export type WorkspaceState = {
   readAt: (path: string) => Promise<string>;
   setStatus: (msg: string | null) => void;
 };
+
+function uniqueUntitledPath(name: string, openTabs: OpenTab[]): string {
+  const safe = name.trim() || "untitled.p";
+  const base = safe.includes("/") ? safe.split("/").pop()! : safe;
+  const dot = base.lastIndexOf(".");
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const ext = dot > 0 ? base.slice(dot) : "";
+
+  let candidate = `untitled/${base}`;
+  let n = 1;
+  const used = new Set(openTabs.map((t) => t.path));
+  while (used.has(candidate)) {
+    n += 1;
+    candidate = `untitled/${stem}-${n}${ext}`;
+  }
+  return candidate;
+}
 
 const SAMPLE_MANIFEST = [
   "hello.p",
@@ -227,6 +252,25 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     });
   },
 
+  createUntitledFile: ({ name, content, language }) => {
+    const { openTabs } = get();
+    const path = uniqueUntitledPath(name, openTabs);
+    const fileName = path.split("/").pop() || name || "untitled.p";
+    const tab: OpenTab = {
+      path,
+      name: fileName,
+      language: language || languageForFilename(fileName),
+      unsaved: true,
+    };
+    set({
+      buffers: { ...get().buffers, [path]: content },
+      dirty: { ...get().dirty, [path]: false },
+      openTabs: [...openTabs, tab],
+      activePath: path,
+      statusMessage: `Created ${fileName}`,
+    });
+  },
+
   setActivePath: (path) => set({ activePath: path }),
 
   closeTab: (path) => {
@@ -256,15 +300,41 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   saveActive: async () => {
-    const { activePath, buffers, root, mode, dirty } = get();
+    const { activePath, buffers, root, mode, dirty, openTabs } = get();
     if (!activePath) {
       set({ statusMessage: "No file open to save" });
       return;
     }
     const content = buffers[activePath] ?? "";
+    const tab = openTabs.find((t) => t.path === activePath);
     const node = findNode(root, activePath);
 
-    if (mode === "fs-access" && node?.handle && node.kind === "file") {
+    // Bound handle from a previous Save File Picker
+    if (tab?.fileHandle) {
+      try {
+        await writeFileHandle(tab.fileHandle, content);
+        set({
+          dirty: { ...dirty, [activePath]: false },
+          openTabs: openTabs.map((t) =>
+            t.path === activePath ? { ...t, unsaved: false } : t
+          ),
+          statusMessage: `Saved ${tab.name}`,
+        });
+      } catch (err) {
+        set({
+          statusMessage: `Save failed: ${(err as Error).message}`,
+        });
+      }
+      return;
+    }
+
+    // Folder file with FS Access handle
+    if (
+      !tab?.unsaved &&
+      mode === "fs-access" &&
+      node?.handle &&
+      node.kind === "file"
+    ) {
       try {
         await writeFileHandle(
           node.handle as FileSystemFileHandle,
@@ -282,13 +352,59 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       return;
     }
 
-    // Fallback / samples: download
-    const name = node?.name || activePath.split("/").pop() || "file.p";
-    downloadTextFile(name, content);
-    set({
-      dirty: { ...dirty, [activePath]: false },
-      statusMessage: `Downloaded ${name}`,
-    });
+    // Unsaved / samples / readonly: picker or download
+    const suggested =
+      tab?.name || node?.name || activePath.split("/").pop() || "untitled.p";
+    try {
+      const result = await saveTextFileLocally(suggested, content);
+      if (!result) {
+        set({ statusMessage: "Save cancelled" });
+        return;
+      }
+
+      const oldPath = activePath;
+      const newName = result.name;
+      const newPath =
+        tab?.unsaved || oldPath.startsWith("untitled/")
+          ? `local/${newName}`
+          : oldPath;
+
+      const nextBuffers = { ...get().buffers };
+      const nextDirty = { ...get().dirty };
+      if (newPath !== oldPath) {
+        nextBuffers[newPath] = content;
+        delete nextBuffers[oldPath];
+        delete nextDirty[oldPath];
+      }
+      nextDirty[newPath] = false;
+
+      const nextTabs = get().openTabs.map((t) => {
+        if (t.path !== oldPath) return t;
+        return {
+          ...t,
+          path: newPath,
+          name: newName,
+          language: languageForFilename(newName),
+          unsaved: false,
+          fileHandle: result.handle ?? t.fileHandle,
+        };
+      });
+
+      set({
+        buffers: nextBuffers,
+        dirty: nextDirty,
+        openTabs: nextTabs,
+        activePath: newPath,
+        statusMessage:
+          result.method === "picker"
+            ? `Saved ${newName}`
+            : `Downloaded ${newName}`,
+      });
+    } catch (err) {
+      set({
+        statusMessage: `Save failed: ${(err as Error).message}`,
+      });
+    }
   },
 
   toggleExpanded: (path) => {

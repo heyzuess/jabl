@@ -15,6 +15,10 @@ export type OpenTab = {
   path: string;
   name: string;
   language: string;
+  /** True when created via New File and not yet written to a durable handle */
+  unsaved?: boolean;
+  /** Writable handle after Save via showSaveFilePicker */
+  fileHandle?: FileSystemFileHandle;
 };
 
 declare global {
@@ -22,6 +26,13 @@ declare global {
     showDirectoryPicker?: (options?: {
       mode?: "read" | "readwrite";
     }) => Promise<FileSystemDirectoryHandle>;
+    showSaveFilePicker?: (options?: {
+      suggestedName?: string;
+      types?: {
+        description?: string;
+        accept: Record<string, string[]>;
+      }[];
+    }) => Promise<FileSystemFileHandle>;
   }
 
   interface FileSystemHandle {

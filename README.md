@@ -5,6 +5,7 @@ A VS Code–like browser IDE for **OpenEdge ABL** built with Next.js, Monaco, an
 ## Features
 
 - **Monaco ABL language** — Monarch tokenizer + keyword/snippet/built-in completions
+- **New File** — create an unsaved tab from Blank, Procedure, Class, or Include templates; Save writes locally (`showSaveFilePicker` or download)
 - **Workspace** — `showDirectoryPicker` when available; `<input webkitdirectory>` fallback (save downloads the file)
 - **Sample project** — `public/samples/abl/` loads automatically so you can try the IDE immediately
 - **Themes** — dark default, light toggle, and a customization panel (persisted in `localStorage`)
@@ -24,6 +25,8 @@ npm run dev
 ```
 
 Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
+
+To edit without a folder: **New File** → choose a template → edit (dirty tabs show `*`) → **Save**.
 
 Or production:
 

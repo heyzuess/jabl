@@ -78,7 +78,11 @@ export function EditorPane({ applyTheme, themeKey }: EditorPaneProps) {
                 type="button"
                 className="min-w-0 flex-1 truncate text-left"
                 onClick={() => setActivePath(tab.path)}
-                title={tab.path}
+                title={
+                  tab.unsaved
+                    ? `Unsaved · ${tab.path}`
+                    : tab.path
+                }
               >
                 {tab.name}
                 {dirty[tab.path] ? " *" : ""}
@@ -142,10 +146,11 @@ function EmptyEditor() {
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground">
       <p className="text-lg font-medium text-foreground/80">JABL</p>
       <p className="max-w-md text-sm">
-        Open a folder or load the sample ABL project, then select a{" "}
+        Use <span className="text-foreground">New File</span> to start from a
+        blank or ABL template, open a folder, or load Samples — then edit{" "}
         <code className="text-[var(--ide-keyword)]">.p</code>,{" "}
-        <code className="text-[var(--ide-keyword)]">.cls</code>, or other ABL
-        file to edit.
+        <code className="text-[var(--ide-keyword)]">.cls</code>, and other ABL
+        files.
       </p>
       <p className="text-xs opacity-70">
         Autocomplete: keywords, snippets, and built-in functions · Ctrl/Cmd+S

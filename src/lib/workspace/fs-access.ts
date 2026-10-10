@@ -191,6 +191,53 @@ export function downloadTextFile(filename: string, contents: string): void {
   URL.revokeObjectURL(url);
 }
 
+export function supportsSaveFilePicker(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.showSaveFilePicker === "function"
+  );
+}
+
+export type LocalSaveResult = {
+  name: string;
+  handle?: FileSystemFileHandle;
+  method: "picker" | "download";
+};
+
+/** Save text locally: File System Access picker when available, else download. */
+export async function saveTextFileLocally(
+  suggestedName: string,
+  contents: string
+): Promise<LocalSaveResult | null> {
+  const name = suggestedName.trim() || "untitled.p";
+
+  if (supportsSaveFilePicker()) {
+    try {
+      const handle = await window.showSaveFilePicker!({
+        suggestedName: name,
+        types: [
+          {
+            description: "OpenEdge ABL",
+            accept: {
+              "text/plain": [".p", ".w", ".i", ".cls", ".df", ".abl", ".txt"],
+            },
+          },
+        ],
+      });
+      await writeFileHandle(handle, contents);
+      return { name: handle.name || name, handle, method: "picker" };
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  downloadTextFile(name, contents);
+  return { name, method: "download" };
+}
+
 export function findNode(
   root: FileNode | null,
   path: string

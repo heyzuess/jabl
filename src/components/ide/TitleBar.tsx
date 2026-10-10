@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  FilePlus,
   FolderOpen,
   Moon,
   Palette,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { NewFileDialog } from "@/components/ide/NewFileDialog";
 import { supportsDirectoryPicker } from "@/lib/workspace/fs-access";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import type { ThemeMode } from "@/lib/theme/themes";
@@ -28,6 +30,7 @@ export function TitleBar({
 }: TitleBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [canPick, setCanPick] = useState(false);
+  const [newFileOpen, setNewFileOpen] = useState(false);
   const openFolderViaPicker = useWorkspaceStore((s) => s.openFolderViaPicker);
   const openFolderViaInput = useWorkspaceStore((s) => s.openFolderViaInput);
   const loadSamples = useWorkspaceStore((s) => s.loadSamples);
@@ -107,6 +110,16 @@ export function TitleBar({
           variant="ghost"
           size="sm"
           className="h-8 gap-1.5 text-xs"
+          onClick={() => setNewFileOpen(true)}
+        >
+          <FilePlus className="size-3.5" />
+          New File
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
           disabled={!activePath}
           onClick={() => void saveActive()}
         >
@@ -149,6 +162,8 @@ export function TitleBar({
           <span>Theme</span>
         </button>
       </div>
+
+      <NewFileDialog open={newFileOpen} onOpenChange={setNewFileOpen} />
     </header>
   );
 }
