@@ -85,10 +85,10 @@ function IdeShellClient() {
         <div className="relative z-0 min-h-0 flex-1">
           <Group orientation="horizontal" className="h-full w-full">
             <Panel
-              defaultSize={20}
-              minSize={12}
+              defaultSize={24}
+              minSize={16}
               maxSize={40}
-              className="min-h-0 min-w-[140px] overflow-hidden"
+              className="min-h-0 min-w-[180px] overflow-hidden"
             >
               <FileExplorer />
             </Panel>
