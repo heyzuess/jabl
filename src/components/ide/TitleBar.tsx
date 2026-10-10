@@ -17,6 +17,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -163,54 +164,58 @@ export function TitleBar({
             <ChevronDown className="size-3 opacity-70" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-56">
-            <DropdownMenuLabel>Panes</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={sidebarVisible}
-              onCheckedChange={() => toggleSidebar()}
-            >
-              Explorer
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem checked disabled>
-              Editor
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={terminalVisible}
-              onCheckedChange={() => toggleTerminal()}
-            >
-              Terminal
-            </DropdownMenuCheckboxItem>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Panes</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={sidebarVisible}
+                onCheckedChange={() => toggleSidebar()}
+              >
+                Explorer
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked disabled>
+                Editor
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={terminalVisible}
+                onCheckedChange={() => toggleTerminal()}
+              >
+                Terminal
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Layout</DropdownMenuLabel>
-            <DropdownMenuItem
-              disabled={sidebarSide === "left" && sidebarVisible}
-              onClick={() => setSidebarSide("left")}
-            >
-              Move Explorer Left
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={sidebarSide === "right" && sidebarVisible}
-              onClick={() => setSidebarSide("right")}
-            >
-              Move Explorer Right
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={panelPosition === "bottom" && terminalVisible}
-              onClick={() => setPanelPosition("bottom")}
-            >
-              Move Terminal Bottom
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={panelPosition === "left" && terminalVisible}
-              onClick={() => setPanelPosition("left")}
-            >
-              Move Terminal Left
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={panelPosition === "right" && terminalVisible}
-              onClick={() => setPanelPosition("right")}
-            >
-              Move Terminal Right
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Layout</DropdownMenuLabel>
+              <DropdownMenuItem
+                disabled={sidebarSide === "left" && sidebarVisible}
+                onClick={() => setSidebarSide("left")}
+              >
+                Move Explorer Left
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={sidebarSide === "right" && sidebarVisible}
+                onClick={() => setSidebarSide("right")}
+              >
+                Move Explorer Right
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={panelPosition === "bottom" && terminalVisible}
+                onClick={() => setPanelPosition("bottom")}
+              >
+                Move Terminal Bottom
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={panelPosition === "left" && terminalVisible}
+                onClick={() => setPanelPosition("left")}
+              >
+                Move Terminal Left
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={panelPosition === "right" && terminalVisible}
+                onClick={() => setPanelPosition("right")}
+              >
+                Move Terminal Right
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
             {maximized && (
               <>
                 <DropdownMenuSeparator />
