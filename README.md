@@ -26,7 +26,7 @@ npm run dev
 
 Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
-To edit without a folder: **File → New File…** (or **Ctrl/Cmd+N**, or the **New File** toolbar button) → choose a template → edit (dirty tabs show `*`) → **Save** (**Ctrl/Cmd+S**).
+To edit without a folder: **File → New File…** (or **Ctrl/Cmd+N**) → choose a template → edit (dirty tabs show `*`) → **File → Save** (**Ctrl/Cmd+S**).
 
 Or production:
 

@@ -59,7 +59,7 @@ export function TitleBar({
     }
   }, []);
 
-  // Global shortcuts: Ctrl/Cmd+N = New File, Ctrl/Cmd+S = Save (Save also in EditorPane)
+  // Global shortcuts: Ctrl/Cmd+N = New File (Save also handled in EditorPane)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -128,33 +128,12 @@ export function TitleBar({
               onClick={() => void saveActive()}
             >
               <Save className="size-3.5" />
-              Save
+              Save{isDirty ? " *" : ""}
               <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1.5 text-xs"
-          title="New File (Ctrl/Cmd+N)"
-          onClick={() => openNewFileDialog()}
-        >
-          <FilePlus className="size-3.5" />
-          New File
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1.5 text-xs"
-          onClick={openFolder}
-        >
-          <FolderOpen className="size-3.5" />
-          Open Folder
-        </Button>
         <input
           ref={inputRef}
           type="file"
@@ -167,28 +146,16 @@ export function TitleBar({
             }
           }}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="hidden h-8 gap-1.5 text-xs sm:inline-flex"
-          onClick={() => void loadSamples()}
-        >
-          <Files className="size-3.5" />
-          Samples
-        </Button>
+
         <Button
           type="button"
           variant="ghost"
           size="sm"
           className="h-8 gap-1.5 text-xs"
-          disabled={!activePath}
-          title="Save (Ctrl/Cmd+S)"
-          onClick={() => void saveActive()}
+          onClick={() => void loadSamples()}
         >
-          <Save className="size-3.5" />
-          Save
-          {isDirty ? " *" : ""}
+          <Files className="size-3.5" />
+          Samples
         </Button>
       </div>
 
