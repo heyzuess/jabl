@@ -63,6 +63,10 @@ type EditorLayoutState = {
   ) => void;
   /** Remap a tab path after save rename. */
   remapPath: (oldPath: string, newPath: string) => void;
+  /** Remap all tab paths under a renamed folder prefix. */
+  remapPathPrefix: (oldPrefix: string, newPrefix: string) => void;
+  /** Close every tab whose path equals or is under prefix. */
+  closePathsUnder: (prefix: string) => void;
   /** Drop workspace-only tabs after folder swap; keep listed paths. */
   retainPaths: (paths: string[]) => void;
   resetLayout: () => void;
@@ -431,15 +435,44 @@ export const useEditorLayoutStore = create<EditorLayoutState>((set, get) => ({
 
   remapPath: (oldPath, newPath) => {
     if (oldPath === newPath) return;
+    get().remapPathPrefix(oldPath, newPath);
+  },
+
+  remapPathPrefix: (oldPrefix, newPrefix) => {
+    if (oldPrefix === newPrefix) return;
+    const remap = (path: string) => {
+      if (path === oldPrefix) return newPrefix;
+      if (path.startsWith(`${oldPrefix}/`)) {
+        return `${newPrefix}${path.slice(oldPrefix.length)}`;
+      }
+      return path;
+    };
     const groups = { ...get().groups };
     for (const id of Object.keys(groups)) {
       const g = groups[id];
-      if (!g.tabPaths.includes(oldPath) && g.activePath !== oldPath) continue;
       groups[id] = {
         ...g,
-        tabPaths: g.tabPaths.map((p) => (p === oldPath ? newPath : p)),
-        activePath: g.activePath === oldPath ? newPath : g.activePath,
+        tabPaths: g.tabPaths.map(remap),
+        activePath: g.activePath ? remap(g.activePath) : null,
       };
+    }
+    set({ groups });
+  },
+
+  closePathsUnder: (prefix) => {
+    const matches = (path: string) =>
+      path === prefix || path.startsWith(`${prefix}/`);
+    const groups = { ...get().groups };
+    for (const id of Object.keys(groups)) {
+      const g = groups[id];
+      const tabPaths = g.tabPaths.filter((p) => !matches(p));
+      const activePath =
+        g.activePath && matches(g.activePath)
+          ? tabPaths.length
+            ? tabPaths[tabPaths.length - 1]
+            : null
+          : g.activePath;
+      groups[id] = { ...g, tabPaths, activePath };
     }
     set({ groups });
   },

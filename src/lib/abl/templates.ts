@@ -86,3 +86,28 @@ export function getTemplate(id: AblTemplateId): AblTemplate {
 export function languageForFilename(filename: string): string {
   return languageIdForPath(filename);
 }
+
+/** Extension from a template default filename (e.g. ".p", ".cls"). */
+export function templateExtension(template: AblTemplate): string {
+  const name = template.defaultFilename;
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(dot) : "";
+}
+
+/**
+ * If the filename has no extension, append the selected template's extension.
+ * Leaves names that already include a "." suffix unchanged.
+ */
+export function ensureTemplateExtension(
+  filename: string,
+  template: AblTemplate
+): string {
+  const trimmed = filename.trim();
+  if (!trimmed) return template.defaultFilename;
+  const base = trimmed.includes("/")
+    ? trimmed.split("/").pop() || trimmed
+    : trimmed;
+  if (base.includes(".")) return trimmed;
+  const ext = templateExtension(template);
+  return ext ? `${trimmed}${ext}` : trimmed;
+}
