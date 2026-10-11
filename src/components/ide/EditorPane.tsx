@@ -198,9 +198,7 @@ export function EditorPane({
             const [fromGroupId, path] = raw.split("\t");
             if (!fromGroupId || !path) return;
             if (edgeHint === "right" || edgeHint === "down") {
-              const newId = splitGroup(groupId, edgeHint, {
-                moveActiveTab: false,
-              });
+              const newId = splitGroup(groupId, edgeHint);
               if (newId) {
                 moveTab(path, fromGroupId, newId);
               }

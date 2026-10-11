@@ -53,7 +53,7 @@ type EditorLayoutState = {
   splitGroup: (
     groupId: EditorGroupId,
     direction: SplitDirection,
-    options?: { moveActiveTab?: boolean }
+    options?: { moveActiveTab?: boolean; detachFromSource?: boolean }
   ) => EditorGroupId | null;
   splitFocused: (direction: SplitDirection) => EditorGroupId | null;
   closeGroup: (groupId: EditorGroupId) => void;
@@ -333,17 +333,24 @@ export const useEditorLayoutStore = create<EditorLayoutState>((set, get) => ({
     if (!source) return null;
 
     const newId = newGroupId();
-    let sourceTabs = [...source.tabPaths];
-    let sourceActive = source.activePath;
+    // VS Code-like: open the active file in the new group without removing it
+    // from the source (unless explicitly moving via drag-to-edge).
     let newTabs: string[] = [];
     let newActive: string | null = null;
+    let nextSource = { ...source };
 
     if (options?.moveActiveTab && source.activePath) {
       const moving = source.activePath;
-      sourceTabs = sourceTabs.filter((p) => p !== moving);
-      sourceActive = sourceTabs.length
-        ? sourceTabs[sourceTabs.length - 1]
-        : null;
+      if (options.detachFromSource) {
+        const sourceTabs = source.tabPaths.filter((p) => p !== moving);
+        nextSource = {
+          ...source,
+          tabPaths: sourceTabs,
+          activePath: sourceTabs.length
+            ? sourceTabs[sourceTabs.length - 1]
+            : null,
+        };
+      }
       newTabs = [moving];
       newActive = moving;
     }
@@ -364,11 +371,7 @@ export const useEditorLayoutStore = create<EditorLayoutState>((set, get) => ({
       root: replaceLeafWithBranch(state.root, groupId, branch),
       groups: {
         ...state.groups,
-        [groupId]: {
-          ...source,
-          tabPaths: sourceTabs,
-          activePath: sourceActive,
-        },
+        [groupId]: nextSource,
         [newId]: createGroup(newId, newTabs, newActive),
       },
       focusedGroupId: newId,
@@ -378,7 +381,7 @@ export const useEditorLayoutStore = create<EditorLayoutState>((set, get) => ({
 
   splitFocused: (direction) =>
     get().splitGroup(get().focusedGroupId, direction, {
-      moveActiveTab: false,
+      moveActiveTab: true,
     }),
 
   closeGroup: (groupId) => {
