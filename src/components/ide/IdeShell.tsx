@@ -13,6 +13,7 @@ import { EditorSplitTree } from "./EditorSplitTree";
 import { TerminalPane } from "./TerminalPane";
 import { ThemeSettings } from "./ThemeSettings";
 import { NewFileDialog } from "./NewFileDialog";
+import { NewFolderDialog } from "./NewFolderDialog";
 import { SaveFileDialog } from "./SaveFileDialog";
 import { EdgeSnapOverlay } from "./EdgeSnapOverlay";
 import { useIdeTheme } from "@/hooks/use-theme";
@@ -151,6 +152,7 @@ function IdeShellClient() {
           open={newFileDialogOpen}
           onOpenChange={setNewFileDialogOpen}
         />
+        <NewFolderDialog />
         <SaveFileDialog />
       </div>
     </TooltipProvider>
