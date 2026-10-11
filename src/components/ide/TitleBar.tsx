@@ -81,12 +81,16 @@ export function TitleBar({
 
   const sidebarVisible = useLayoutStore((s) => s.sidebarVisible);
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
+  const documentationVisible = useLayoutStore((s) => s.documentationVisible);
   const sidebarSide = useLayoutStore((s) => s.sidebarSide);
   const panelPosition = useLayoutStore((s) => s.panelPosition);
+  const docsPosition = useLayoutStore((s) => s.docsPosition);
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
   const toggleTerminal = useLayoutStore((s) => s.toggleTerminal);
+  const toggleDocumentation = useLayoutStore((s) => s.toggleDocumentation);
   const setSidebarSide = useLayoutStore((s) => s.setSidebarSide);
   const setPanelPosition = useLayoutStore((s) => s.setPanelPosition);
+  const setDocsPosition = useLayoutStore((s) => s.setDocsPosition);
   const restoreLayout = useLayoutStore((s) => s.restoreLayout);
   const maximized = useLayoutStore((s) => s.maximized);
   const splitFocused = useEditorLayoutStore((s) => s.splitFocused);
@@ -228,6 +232,12 @@ export function TitleBar({
               >
                 Terminal
               </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={documentationVisible}
+                onCheckedChange={() => toggleDocumentation()}
+              >
+                Documentation
+              </DropdownMenuCheckboxItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -277,6 +287,24 @@ export function TitleBar({
                 onClick={() => setPanelPosition("right")}
               >
                 Move Terminal Right
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={docsPosition === "bottom" && documentationVisible}
+                onClick={() => setDocsPosition("bottom")}
+              >
+                Move Documentation Bottom
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={docsPosition === "left" && documentationVisible}
+                onClick={() => setDocsPosition("left")}
+              >
+                Move Documentation Left
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={docsPosition === "right" && documentationVisible}
+                onClick={() => setDocsPosition("right")}
+              >
+                Move Documentation Right
               </DropdownMenuItem>
             </DropdownMenuGroup>
             {maximized && (

@@ -44,7 +44,7 @@ export function EdgeSnapOverlay() {
 
   if (!draggingPane) return null;
 
-  // Explorer: emphasize left/right edges; Terminal: all zones
+  // Explorer: left/right; Terminal / Documentation: all zones
   const visible =
     draggingPane === "explorer"
       ? ZONES.filter((z) => z.id === "left" || z.id === "right")

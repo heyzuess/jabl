@@ -1,6 +1,9 @@
 import type * as Monaco from "monaco-editor";
 import { ablLanguageConfig, ablMonarchTokens } from "./monarch";
 import { createAblCompletionProvider } from "./completions";
+import { createAblHoverProvider } from "./hover";
+import { OPEN_DOC_COMMAND } from "./docs";
+import { openAblDocumentation, type OpenDocArg } from "./open-documentation";
 import { ABL_EXTENSIONS } from "./keywords";
 
 let registered = false;
@@ -21,6 +24,16 @@ export function registerAblLanguage(monaco: typeof Monaco): void {
   monaco.languages.registerCompletionItemProvider(
     "abl",
     createAblCompletionProvider()
+  );
+  monaco.languages.registerHoverProvider("abl", createAblHoverProvider());
+
+  // Hover “Open in Documentation ▸” command links (trusted markdown)
+  monaco.editor.registerCommand(
+    OPEN_DOC_COMMAND,
+    (_accessor: unknown, ...args: unknown[]) => {
+      const first = args[0] as OpenDocArg | undefined;
+      if (first != null) openAblDocumentation(first);
+    }
   );
 }
 

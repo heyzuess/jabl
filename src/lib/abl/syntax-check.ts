@@ -22,7 +22,8 @@ type BlockKind =
   | "DESTRUCTOR"
   | "CATCH"
   | "FINALLY"
-  | "INTERFACE";
+  | "INTERFACE"
+  | "ENUM";
 
 type OpenBlock = {
   kind: BlockKind;
@@ -48,6 +49,7 @@ const BLOCK_OPENERS: Record<string, BlockKind> = {
   CATCH: "CATCH",
   FINALLY: "FINALLY",
   INTERFACE: "INTERFACE",
+  ENUM: "ENUM",
 };
 
 /** Words that commonly precede identifiers (skip unknown-keyword warnings). */
@@ -118,12 +120,17 @@ const IDENT_CONTEXT = new Set([
   "PUBLIC",
   "PROTECTED",
   "PRIVATE",
+  "PACKAGE-PRIVATE",
   "STATIC",
   "ABSTRACT",
   "OVERRIDE",
   "FINAL",
   "INHERITS",
   "IMPLEMENTS",
+  "ENUM",
+  "EVENT",
+  "SERIALIZABLE",
+  "CAST",
   "NEW",
   "THIS-OBJECT",
   "SUPER",
@@ -254,14 +261,27 @@ export function checkAblSyntax(source: string): AblDiagnostic[] {
       }
 
       const openKind = BLOCK_OPENERS[upper];
-      if (openKind) {
-        // "FOR EACH" / "FOR FIRST" opens a block; bare FOR in other contexts still treated as opener
-        stack.push({
-          kind: openKind,
-          line: lineNo,
-          column: colBase + t.col,
-        });
+      if (!openKind) continue;
+
+      // DEFINE ENUM … members — not an ENUM type block
+      if (
+        openKind === "ENUM" &&
+        ti > 0 &&
+        tokens[ti - 1].value.toUpperCase() === "DEFINE"
+      ) {
+        continue;
       }
+
+      // Interface / abstract method signatures end with ")."; they have no END METHOD
+      if (openKind === "METHOD" && isMethodSignatureOnly(tokens, ti, code)) {
+        continue;
+      }
+
+      stack.push({
+        kind: openKind,
+        line: lineNo,
+        column: colBase + t.col,
+      });
     }
 
     // Conservative unknown-keyword warnings on leading statement word
@@ -428,4 +448,21 @@ function tokenizeCode(code: string): { value: string; col: number }[] {
     tokens.push({ value: m[0], col: m.index });
   }
   return tokens;
+}
+
+/**
+ * True for method prototypes that are not followed by a body / END METHOD:
+ * - ABSTRACT methods
+ * - Interface-style signatures ending with `).` on the header line
+ */
+function isMethodSignatureOnly(
+  tokens: { value: string; col: number }[],
+  methodIndex: number,
+  code: string
+): boolean {
+  for (let i = methodIndex; i < tokens.length; i++) {
+    if (tokens[i].value.toUpperCase() === "ABSTRACT") return true;
+  }
+  const fromMethod = code.slice(tokens[methodIndex]?.col ?? 0);
+  return /\)\s*\.\s*$/.test(fromMethod.trimEnd());
 }

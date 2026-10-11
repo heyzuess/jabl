@@ -6,3 +6,12 @@
 - Persisting editor split tree across reloads
 - Real OS terminal CWD (virtual cwd only today)
 - Changing shell explorer/terminal docking
+- Go-to-definition / find-references across .cls / .i (including click from hover)
+- Signature help while typing call arguments
+- Full INHERITS / IMPLEMENTS member merge and override checks
+- Nested include expansion and include-argument symbol awareness
+- Document outline / Monaco document-symbol provider for class members
+- Schema/field completion from .df
+- Package path vs folder convention and class/filename mismatch warnings
+- Richer OE language documentation corpus / external help links
+- Real OpenEdge compile diagnostics for OOP (overlaps compiler / LSP bullets above)

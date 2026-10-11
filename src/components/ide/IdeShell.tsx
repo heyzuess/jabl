@@ -11,6 +11,7 @@ import { TitleBar } from "./TitleBar";
 import { FileExplorer } from "./FileExplorer";
 import { EditorSplitTree } from "./EditorSplitTree";
 import { TerminalPane } from "./TerminalPane";
+import { DocumentationPane } from "./DocumentationPane";
 import { ThemeSettings } from "./ThemeSettings";
 import { NewFileDialog } from "./NewFileDialog";
 import { NewFolderDialog } from "./NewFolderDialog";
@@ -57,8 +58,10 @@ function IdeShellClient() {
   const maximized = useLayoutStore((s) => s.maximized);
   const sidebarVisible = useLayoutStore((s) => s.sidebarVisible);
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
+  const documentationVisible = useLayoutStore((s) => s.documentationVisible);
   const sidebarSide = useLayoutStore((s) => s.sidebarSide);
   const panelPosition = useLayoutStore((s) => s.panelPosition);
+  const docsPosition = useLayoutStore((s) => s.docsPosition);
   const minimized = useLayoutStore((s) => s.minimized);
 
   useEffect(() => {
@@ -81,6 +84,7 @@ function IdeShellClient() {
       accent={theme.custom.accent}
     />
   );
+  const documentation = <DocumentationPane />;
 
   return (
     <TooltipProvider>
@@ -123,17 +127,24 @@ function IdeShellClient() {
           {maximized === "terminal" && (
             <div className="h-full w-full overflow-hidden">{terminal}</div>
           )}
+          {maximized === "documentation" && (
+            <div className="h-full w-full overflow-hidden">{documentation}</div>
+          )}
           {!maximized && (
             <LayoutBody
               sidebarVisible={sidebarVisible}
               terminalVisible={terminalVisible}
+              documentationVisible={documentationVisible}
               sidebarSide={sidebarSide}
               panelPosition={panelPosition}
+              docsPosition={docsPosition}
               explorerMinimized={minimized.explorer}
               terminalMinimized={minimized.terminal}
+              documentationMinimized={minimized.documentation}
               explorer={explorer}
               editor={editor}
               terminal={terminal}
+              documentation={documentation}
             />
           )}
           <EdgeSnapOverlay />
@@ -162,61 +173,127 @@ function IdeShellClient() {
 type LayoutBodyProps = {
   sidebarVisible: boolean;
   terminalVisible: boolean;
+  documentationVisible: boolean;
   sidebarSide: "left" | "right";
   panelPosition: "bottom" | "right" | "left";
+  docsPosition: "bottom" | "right" | "left";
   explorerMinimized: boolean;
   terminalMinimized: boolean;
+  documentationMinimized: boolean;
   explorer: ReactNode;
   editor: ReactNode;
   terminal: ReactNode;
+  documentation: ReactNode;
 };
 
 function LayoutBody({
   sidebarVisible,
   terminalVisible,
+  documentationVisible,
   sidebarSide,
   panelPosition,
+  docsPosition,
   explorerMinimized,
   terminalMinimized,
+  documentationMinimized,
   explorer,
   editor,
   terminal,
+  documentation,
 }: LayoutBodyProps) {
+  const docsOnSide =
+    documentationVisible &&
+    (docsPosition === "left" || docsPosition === "right");
+  const docsOnBottom = documentationVisible && docsPosition === "bottom";
+
   const center = (
-    <EditorTerminalStack
+    <EditorTerminalDocsStack
       panelPosition={panelPosition}
       terminalVisible={terminalVisible}
       terminalMinimized={terminalMinimized}
+      docsOnBottom={docsOnBottom}
+      documentationMinimized={documentationMinimized}
       editor={editor}
       terminal={terminal}
+      documentation={documentation}
     />
   );
 
-  if (!sidebarVisible) {
-    return <div className="h-full w-full overflow-hidden">{center}</div>;
+  let main: ReactNode = center;
+
+  if (sidebarVisible) {
+    const sidebarPanel = (
+      <CollapsiblePane
+        id="explorer"
+        defaultSize="22%"
+        minSize="14%"
+        maxSize="40%"
+        collapsedSize="2rem"
+        minimized={explorerMinimized}
+      >
+        {explorer}
+      </CollapsiblePane>
+    );
+
+    const mainPanel = (
+      <Panel
+        id="main"
+        defaultSize="78%"
+        minSize="40%"
+        className="min-h-0 overflow-hidden"
+      >
+        {center}
+      </Panel>
+    );
+
+    const sep = (
+      <ResizeSeparator className="w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
+    );
+
+    main = (
+      <Group orientation="horizontal" className="h-full w-full">
+        {sidebarSide === "left" ? (
+          <>
+            {sidebarPanel}
+            {sep}
+            {mainPanel}
+          </>
+        ) : (
+          <>
+            {mainPanel}
+            {sep}
+            {sidebarPanel}
+          </>
+        )}
+      </Group>
+    );
   }
 
-  const sidebarPanel = (
+  if (!docsOnSide) {
+    return <div className="h-full w-full overflow-hidden">{main}</div>;
+  }
+
+  const docsPanel = (
     <CollapsiblePane
-      id="explorer"
-      defaultSize="22%"
-      minSize="14%"
-      maxSize="40%"
+      id="documentation"
+      defaultSize="28%"
+      minSize="16%"
+      maxSize="50%"
       collapsedSize="2rem"
-      minimized={explorerMinimized}
+      minimized={documentationMinimized}
     >
-      {explorer}
+      {documentation}
     </CollapsiblePane>
   );
 
-  const mainPanel = (
+  const contentPanel = (
     <Panel
-      id="main"
-      defaultSize="78%"
+      id="content"
+      defaultSize="72%"
       minSize="40%"
       className="min-h-0 overflow-hidden"
     >
-      {center}
+      {main}
     </Panel>
   );
 
@@ -226,79 +303,155 @@ function LayoutBody({
 
   return (
     <Group orientation="horizontal" className="h-full w-full">
-      {sidebarSide === "left" ? (
+      {docsPosition === "left" ? (
         <>
-          {sidebarPanel}
+          {docsPanel}
           {sep}
-          {mainPanel}
+          {contentPanel}
         </>
       ) : (
         <>
-          {mainPanel}
+          {contentPanel}
           {sep}
-          {sidebarPanel}
+          {docsPanel}
         </>
       )}
     </Group>
   );
 }
 
-function EditorTerminalStack({
+function EditorTerminalDocsStack({
   panelPosition,
   terminalVisible,
   terminalMinimized,
+  docsOnBottom,
+  documentationMinimized,
   editor,
   terminal,
+  documentation,
 }: {
   panelPosition: "bottom" | "right" | "left";
   terminalVisible: boolean;
   terminalMinimized: boolean;
+  docsOnBottom: boolean;
+  documentationMinimized: boolean;
   editor: ReactNode;
   terminal: ReactNode;
+  documentation: ReactNode;
 }) {
-  if (!terminalVisible) {
-    return <div className="h-full w-full overflow-hidden">{editor}</div>;
+  const bottomExtras: ReactNode[] = [];
+  if (terminalVisible && panelPosition === "bottom") {
+    bottomExtras.push(
+      <CollapsiblePane
+        key="terminal"
+        id="terminal"
+        defaultSize={docsOnBottom ? "50%" : "28%"}
+        minSize="12%"
+        collapsedSize="2rem"
+        minimized={terminalMinimized}
+      >
+        {terminal}
+      </CollapsiblePane>
+    );
+  }
+  if (docsOnBottom) {
+    bottomExtras.push(
+      <CollapsiblePane
+        key="documentation-bottom"
+        id="documentation-bottom"
+        defaultSize={terminalVisible && panelPosition === "bottom" ? "50%" : "28%"}
+        minSize="12%"
+        collapsedSize="2rem"
+        minimized={documentationMinimized}
+      >
+        {documentation}
+      </CollapsiblePane>
+    );
   }
 
-  const orientation =
-    panelPosition === "bottom" ? "vertical" : "horizontal";
-  const sepClass =
-    panelPosition === "bottom"
-      ? "h-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]"
-      : "w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]";
+  // Side-docked terminal (not bottom)
+  const sideTerminal =
+    terminalVisible && panelPosition !== "bottom" ? (
+      <CollapsiblePane
+        id="terminal"
+        defaultSize="30%"
+        minSize="12%"
+        collapsedSize="2rem"
+        minimized={terminalMinimized}
+      >
+        {terminal}
+      </CollapsiblePane>
+    ) : null;
+
+  let editorRegion: ReactNode = (
+    <div className="h-full w-full overflow-hidden">{editor}</div>
+  );
+
+  if (bottomExtras.length > 0) {
+    const editorPanel = (
+      <Panel
+        id="editor"
+        defaultSize="72%"
+        minSize="30%"
+        className="min-h-0 overflow-hidden"
+      >
+        {editor}
+      </Panel>
+    );
+
+    const bottomPanel =
+      bottomExtras.length === 1 ? (
+        bottomExtras[0]
+      ) : (
+        <Panel
+          id="bottom-stack"
+          defaultSize="28%"
+          minSize="16%"
+          className="min-h-0 overflow-hidden"
+        >
+          <Group orientation="horizontal" className="h-full w-full">
+            {bottomExtras[0]}
+            <ResizeSeparator className="w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
+            {bottomExtras[1]}
+          </Group>
+        </Panel>
+      );
+
+    editorRegion = (
+      <Group orientation="vertical" className="h-full w-full">
+        {editorPanel}
+        <ResizeSeparator className="h-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
+        {bottomPanel}
+      </Group>
+    );
+  }
+
+  if (!sideTerminal) {
+    return <div className="h-full w-full overflow-hidden">{editorRegion}</div>;
+  }
 
   const editorPanel = (
     <Panel
-      id="editor"
-      defaultSize={panelPosition === "bottom" ? "72%" : "70%"}
+      id="editor-region"
+      defaultSize="70%"
       minSize="30%"
       className="min-h-0 overflow-hidden"
     >
-      {editor}
+      {editorRegion}
     </Panel>
   );
 
-  const terminalPanel = (
-    <CollapsiblePane
-      id="terminal"
-      defaultSize={panelPosition === "bottom" ? "28%" : "30%"}
-      minSize="12%"
-      collapsedSize="2rem"
-      minimized={terminalMinimized}
-    >
-      {terminal}
-    </CollapsiblePane>
+  const sep = (
+    <ResizeSeparator className="w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
   );
-
-  const sep = <ResizeSeparator className={sepClass} />;
 
   const terminalFirst = panelPosition === "left";
 
   return (
-    <Group orientation={orientation} className="h-full w-full">
+    <Group orientation="horizontal" className="h-full w-full">
       {terminalFirst ? (
         <>
-          {terminalPanel}
+          {sideTerminal}
           {sep}
           {editorPanel}
         </>
@@ -306,7 +459,7 @@ function EditorTerminalStack({
         <>
           {editorPanel}
           {sep}
-          {terminalPanel}
+          {sideTerminal}
         </>
       )}
     </Group>

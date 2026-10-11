@@ -364,6 +364,13 @@ export function EditorPane({
               padding: { top: 8 },
               renderLineHighlight: "line",
               smoothScrolling: true,
+              hover: {
+                enabled: "on",
+                delay: 400,
+                // Keep hover open so links (e.g. Open in Documentation) are clickable
+                sticky: true,
+                hidingDelay: 500,
+              },
             }}
             loading={
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">

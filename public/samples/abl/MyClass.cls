@@ -1,0 +1,18 @@
+/* ABL class */
+USING Progress.Lang.*.
+
+CLASS samples.MyClass:
+
+  DEFINE PUBLIC PROPERTY Name AS CHARACTER NO-UNDO
+    GET.
+    SET.
+
+  CONSTRUCTOR PUBLIC MyClass(INPUT pcName AS CHARACTER):
+    THIS-OBJECT:Name = pcName.
+  END CONSTRUCTOR.
+
+  METHOD PUBLIC CHARACTER ToString():
+    RETURN THIS-OBJECT:Name.
+  END METHOD.
+
+END CLASS.

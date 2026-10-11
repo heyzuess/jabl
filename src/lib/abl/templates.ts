@@ -1,6 +1,13 @@
 import { languageIdForPath } from "./register";
 
-export type AblTemplateId = "blank" | "procedure" | "class" | "include";
+export type AblTemplateId =
+  | "blank"
+  | "procedure"
+  | "class"
+  | "interface"
+  | "enum"
+  | "abstract-class"
+  | "include";
 
 export type AblTemplate = {
   id: AblTemplateId;
@@ -57,6 +64,63 @@ CLASS MyClass:
 
   METHOD PUBLIC CHARACTER ToString():
     RETURN THIS-OBJECT:Name.
+  END METHOD.
+
+END CLASS.
+`,
+  },
+  {
+    id: "interface",
+    label: "Interface (.cls)",
+    description: "ABL interface with a sample method signature",
+    defaultFilename: "IMyInterface.cls",
+    content: `/* ABL interface */
+USING Progress.Lang.*.
+
+INTERFACE IMyInterface:
+
+  METHOD PUBLIC CHARACTER GetName().
+
+  METHOD PUBLIC VOID SetName(INPUT pcName AS CHARACTER).
+
+END INTERFACE.
+`,
+  },
+  {
+    id: "enum",
+    label: "Enum (.cls)",
+    description: "ABL enumerated type",
+    defaultFilename: "MyEnum.cls",
+    content: `/* ABL enum */
+ENUM MyEnum:
+  DEFINE ENUM None
+              Active
+              Inactive.
+END ENUM.
+`,
+  },
+  {
+    id: "abstract-class",
+    label: "Abstract class (.cls)",
+    description: "Abstract ABL class with an abstract method stub",
+    defaultFilename: "MyAbstract.cls",
+    content: `/* Abstract ABL class */
+USING Progress.Lang.*.
+
+ABSTRACT CLASS MyAbstract:
+
+  DEFINE PUBLIC PROPERTY Id AS INTEGER NO-UNDO
+    GET.
+    SET.
+
+  CONSTRUCTOR PUBLIC MyAbstract(INPUT piId AS INTEGER):
+    THIS-OBJECT:Id = piId.
+  END CONSTRUCTOR.
+
+  METHOD ABSTRACT PUBLIC CHARACTER Describe().
+
+  METHOD PUBLIC CHARACTER ToString():
+    RETURN STRING(THIS-OBJECT:Id).
   END METHOD.
 
 END CLASS.

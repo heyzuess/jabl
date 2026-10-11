@@ -246,10 +246,16 @@ function uniqueLocalPath(name: string, openTabs: OpenTab[]): string {
   return candidate;
 }
 
+/** Sample files — includes New File template counterparts plus demo sources. */
 const SAMPLE_MANIFEST = [
   "hello.p",
+  "procedure.p",
   "customer-query.p",
   "Customer.cls",
+  "MyClass.cls",
+  "IMyInterface.cls",
+  "MyEnum.cls",
+  "MyAbstract.cls",
   "utils.i",
   "schema.df",
 ];
@@ -1007,6 +1013,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       buffers: { ...get().buffers, [path]: value },
       dirty: { ...get().dirty, [path]: true },
     });
+    // Keep ABL symbol index in sync for completions / hover (lazy import avoids cycles)
+    if (/\.(p|w|i|cls|abl)$/i.test(path)) {
+      void import("@/lib/abl/workspace-index").then(({ noteBufferChange }) => {
+        noteBufferChange(path, value);
+      });
+    }
   },
 
   saveActive: async () => {

@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   useLayoutStore,
+  type DockablePane,
   type PaneId,
   type SnapZone,
 } from "@/lib/workspace/layout-store";
@@ -49,15 +50,18 @@ export function PaneChrome({
       ? minimized.explorer
       : pane === "terminal"
         ? minimized.terminal
-        : false;
+        : pane === "documentation"
+          ? minimized.documentation
+          : false;
 
-  const canDock = pane === "explorer" || pane === "terminal";
+  const canDock =
+    pane === "explorer" || pane === "terminal" || pane === "documentation";
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!canDock || editorMode) return;
     if ((e.target as HTMLElement).closest("button")) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    startPaneDrag(pane);
+    startPaneDrag(pane as DockablePane);
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -69,7 +73,13 @@ export function PaneChrome({
     const rect = el.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const zone = hitTestSnapZone(x, y, rect.width, rect.height, pane);
+    const zone = hitTestSnapZone(
+      x,
+      y,
+      rect.width,
+      rect.height,
+      pane as DockablePane
+    );
     updateSnapTarget(zone);
   };
 
@@ -171,13 +181,17 @@ export function hitTestSnapZone(
   y: number,
   w: number,
   h: number,
-  pane: Exclude<PaneId, "editor">
+  pane: DockablePane
 ): SnapZone | null {
   const edge = Math.min(72, w * 0.18, h * 0.22);
   if (y > h - edge) return "bottom";
-  if (x < edge) return pane === "explorer" ? "left" : "left";
-  if (x > w - edge) return pane === "explorer" ? "right" : "right";
-  // center halves for side docking preview
+  if (x < edge) return "left";
+  if (x > w - edge) return "right";
+  if (pane === "explorer") {
+    if (x < w * 0.45) return "center-left";
+    if (x > w * 0.55) return "center-right";
+    return null;
+  }
   if (x < w * 0.45) return "center-left";
   if (x > w * 0.55) return "center-right";
   return null;

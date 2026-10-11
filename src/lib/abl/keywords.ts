@@ -51,6 +51,7 @@ export const ABL_KEYWORDS = [
   "METHOD",
   "CLASS",
   "INTERFACE",
+  "ENUM",
   "INHERITS",
   "IMPLEMENTS",
   "USING",
@@ -60,6 +61,7 @@ export const ABL_KEYWORDS = [
   "PUBLIC",
   "PROTECTED",
   "PRIVATE",
+  "PACKAGE-PRIVATE",
   "STATIC",
   "ABSTRACT",
   "OVERRIDE",
@@ -69,6 +71,9 @@ export const ABL_KEYWORDS = [
   "PROPERTY",
   "GET",
   "SET",
+  "EVENT",
+  "SERIALIZABLE",
+  "CAST",
   "ASSIGN",
   "CREATE",
   "DELETE",
@@ -492,6 +497,35 @@ export const ABL_SNIPPETS: { label: string; insertText: string; detail: string }
     insertText:
       "METHOD PUBLIC ${1:VOID} ${2:MethodName}():\n  ${0}\nEND METHOD.\n",
     detail: "Class method",
+  },
+  {
+    label: "PROPERTY",
+    insertText:
+      "DEFINE PUBLIC PROPERTY ${1:Name} AS ${2:CHARACTER} NO-UNDO\n  GET.\n  SET.\n",
+    detail: "Class property with GET/SET",
+  },
+  {
+    label: "DESTRUCTOR",
+    insertText:
+      "DESTRUCTOR PUBLIC ${1:MyClass}():\n  ${0}\nEND DESTRUCTOR.\n",
+    detail: "Class destructor",
+  },
+  {
+    label: "USING",
+    insertText: "USING ${1:Progress.Lang.*}.\n",
+    detail: "Import a type or package",
+  },
+  {
+    label: "INTERFACE",
+    insertText:
+      "INTERFACE ${1:IMyInterface}:\n\n  METHOD PUBLIC ${2:VOID} ${3:MethodName}().\n\nEND INTERFACE.\n",
+    detail: "ABL interface skeleton",
+  },
+  {
+    label: "ENUM",
+    insertText:
+      "ENUM ${1:MyEnum}:\n  DEFINE ENUM ${2:Value1}\n              ${3:Value2}.\nEND ENUM.\n",
+    detail: "ABL enum skeleton",
   },
   {
     label: "DO WHILE",
