@@ -3,6 +3,10 @@
    in the same window as the create new file option, but in a seperate pane to the right. If no template is 
    selected this pane is blank. A placeholder text can be displayed in this pane at the center that says 
    "preview" in a dark font when no template is selected.
+2. Allow files in the open files pane to be closed out by clicking x (similar to vs code or IntelliJ IDEA).
+3. Add options to open files pane to:
+    - close all files (prompt user to confirm closing all files when there are file changes unsaved).
+    - close all saved files only.
 
 [done / partial]
 - OpenEdge compile/run via local OE agent + Output pane (batch _progres; not full OS shell / prowin UI)
