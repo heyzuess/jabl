@@ -14,6 +14,7 @@ import {
   startDebug,
   stepDebug,
 } from "@/lib/debug/session";
+import { executeAbl } from "@/lib/oe/execute";
 
 export type TerminalApi = {
   write: (text: string) => void;
@@ -54,6 +55,8 @@ export async function runCommand(
       api.writeln("  echo [text…]      Echo arguments");
       api.writeln("  cd [path]         Change virtual directory");
       api.writeln("  check [path]      Run ABL syntax check (active file if omitted)");
+      api.writeln("  compile [path]    Compile via OpenEdge agent → Output pane");
+      api.writeln("  run [path]        Run via OpenEdge agent → Output pane");
       api.writeln("  debug [path]      Start simulated line debugger");
       api.writeln("  break <n>         Set breakpoint at line n");
       api.writeln("  clearbp [n]       Clear breakpoint n (or all)");
@@ -204,6 +207,28 @@ export async function runCommand(
       if (resolved.path !== state.activePath) {
         void state.openFile(resolved.path);
       }
+      break;
+    }
+
+    case "compile":
+    case "run": {
+      const resolved = await resolveSourcePath(args[0], state, api);
+      if (!resolved) break;
+      if (languageIdForPath(resolved.path) !== "abl") {
+        api.writeln(`${cmd}: not an ABL file: ${resolved.path}`);
+        break;
+      }
+      if (resolved.path !== state.activePath) {
+        void state.openFile(resolved.path);
+      }
+      api.writeln(
+        `${cmd === "run" ? "Running" : "Compiling"} ${resolved.path} (see Output pane)…`
+      );
+      const result = await executeAbl(
+        cmd === "run" ? "run" : "compile",
+        resolved.path
+      );
+      api.writeln(result.message);
       break;
     }
 

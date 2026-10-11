@@ -197,6 +197,79 @@ export function extractUsings(source: string): AblUsing[] {
   return out;
 }
 
+export type AblTypeRef = {
+  name: string;
+  line: number;
+  kind: "inherits" | "implements" | "new" | "as-class";
+};
+
+/** INHERITS / IMPLEMENTS / NEW Type( / AS CLASS Type references. */
+export function extractTypeRefs(source: string): AblTypeRef[] {
+  const lines = linesOf(source);
+  const out: AblTypeRef[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const cleaned = stripCommentsAndStrings(lines[i]);
+    if (!cleaned.trim()) continue;
+
+    const inherits = cleaned.match(/\bINHERITS\s+([A-Za-z_][\w.]*)/i);
+    if (inherits) {
+      out.push({ name: inherits[1], line: i + 1, kind: "inherits" });
+    }
+
+    const implementsMatch = cleaned.match(
+      /\bIMPLEMENTS\s+([A-Za-z_][\w.,\s]*)/i
+    );
+    if (implementsMatch) {
+      for (const part of implementsMatch[1].split(",")) {
+        const name = part.trim().replace(/\s+/g, "");
+        if (name) out.push({ name, line: i + 1, kind: "implements" });
+      }
+    }
+
+    const newRe = /\bNEW\s+([A-Za-z_][\w.]*)\s*\(/gi;
+    let nm: RegExpExecArray | null;
+    while ((nm = newRe.exec(cleaned)) !== null) {
+      out.push({ name: nm[1], line: i + 1, kind: "new" });
+    }
+
+    const asClass = cleaned.match(
+      /\bAS\s+CLASS\s+([A-Za-z_][\w.]*)/i
+    );
+    if (asClass) {
+      out.push({ name: asClass[1], line: i + 1, kind: "as-class" });
+    }
+  }
+  return out;
+}
+
+export type AblRunTarget = {
+  path: string;
+  line: number;
+};
+
+/**
+ * External RUN targets with a file extension (.p / .w / .r).
+ * Skips internal procedure names like `RUN LoadCustomers.`.
+ */
+export function extractRunTargets(source: string): AblRunTarget[] {
+  const lines = linesOf(source);
+  const out: AblRunTarget[] = [];
+  const re =
+    /\bRUN\s+(?:"([^"]+\.(?:p|w|r))"|'([^']+\.(?:p|w|r))'|([A-Za-z0-9_./\\-]+\.(?:p|w|r)))/gi;
+
+  for (let i = 0; i < lines.length; i++) {
+    const cleaned = stripCommentsAndStrings(lines[i]);
+    let m: RegExpExecArray | null;
+    re.lastIndex = 0;
+    while ((m = re.exec(cleaned)) !== null) {
+      const path = (m[1] || m[2] || m[3] || "").replace(/\\/g, "/");
+      if (path) out.push({ path, line: i + 1 });
+    }
+  }
+  return out;
+}
+
 /** Typed DEFINE VARIABLE / PROPERTY … AS Type (non-primitive class types). */
 export function extractTypedVariables(source: string): AblTypedVariable[] {
   const lines = linesOf(source);

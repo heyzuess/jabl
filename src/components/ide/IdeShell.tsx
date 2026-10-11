@@ -12,6 +12,7 @@ import { FileExplorer } from "./FileExplorer";
 import { EditorSplitTree } from "./EditorSplitTree";
 import { TerminalPane } from "./TerminalPane";
 import { DocumentationPane } from "./DocumentationPane";
+import { OutputPane } from "./OutputPane";
 import { ThemeSettings } from "./ThemeSettings";
 import { NewFileDialog } from "./NewFileDialog";
 import { NewFolderDialog } from "./NewFolderDialog";
@@ -59,9 +60,11 @@ function IdeShellClient() {
   const sidebarVisible = useLayoutStore((s) => s.sidebarVisible);
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
   const documentationVisible = useLayoutStore((s) => s.documentationVisible);
+  const outputVisible = useLayoutStore((s) => s.outputVisible);
   const sidebarSide = useLayoutStore((s) => s.sidebarSide);
   const panelPosition = useLayoutStore((s) => s.panelPosition);
   const docsPosition = useLayoutStore((s) => s.docsPosition);
+  const outputPosition = useLayoutStore((s) => s.outputPosition);
   const minimized = useLayoutStore((s) => s.minimized);
 
   useEffect(() => {
@@ -85,6 +88,7 @@ function IdeShellClient() {
     />
   );
   const documentation = <DocumentationPane />;
+  const output = <OutputPane />;
 
   return (
     <TooltipProvider>
@@ -130,21 +134,28 @@ function IdeShellClient() {
           {maximized === "documentation" && (
             <div className="h-full w-full overflow-hidden">{documentation}</div>
           )}
+          {maximized === "output" && (
+            <div className="h-full w-full overflow-hidden">{output}</div>
+          )}
           {!maximized && (
             <LayoutBody
               sidebarVisible={sidebarVisible}
               terminalVisible={terminalVisible}
               documentationVisible={documentationVisible}
+              outputVisible={outputVisible}
               sidebarSide={sidebarSide}
               panelPosition={panelPosition}
               docsPosition={docsPosition}
+              outputPosition={outputPosition}
               explorerMinimized={minimized.explorer}
               terminalMinimized={minimized.terminal}
               documentationMinimized={minimized.documentation}
+              outputMinimized={minimized.output}
               explorer={explorer}
               editor={editor}
               terminal={terminal}
               documentation={documentation}
+              output={output}
             />
           )}
           <EdgeSnapOverlay />
@@ -174,48 +185,63 @@ type LayoutBodyProps = {
   sidebarVisible: boolean;
   terminalVisible: boolean;
   documentationVisible: boolean;
+  outputVisible: boolean;
   sidebarSide: "left" | "right";
   panelPosition: "bottom" | "right" | "left";
   docsPosition: "bottom" | "right" | "left";
+  outputPosition: "bottom" | "right" | "left";
   explorerMinimized: boolean;
   terminalMinimized: boolean;
   documentationMinimized: boolean;
+  outputMinimized: boolean;
   explorer: ReactNode;
   editor: ReactNode;
   terminal: ReactNode;
   documentation: ReactNode;
+  output: ReactNode;
 };
 
 function LayoutBody({
   sidebarVisible,
   terminalVisible,
   documentationVisible,
+  outputVisible,
   sidebarSide,
   panelPosition,
   docsPosition,
+  outputPosition,
   explorerMinimized,
   terminalMinimized,
   documentationMinimized,
+  outputMinimized,
   explorer,
   editor,
   terminal,
   documentation,
+  output,
 }: LayoutBodyProps) {
   const docsOnSide =
     documentationVisible &&
     (docsPosition === "left" || docsPosition === "right");
+  const outputOnSide =
+    outputVisible &&
+    (outputPosition === "left" || outputPosition === "right");
   const docsOnBottom = documentationVisible && docsPosition === "bottom";
+  const outputOnBottom = outputVisible && outputPosition === "bottom";
 
   const center = (
-    <EditorTerminalDocsStack
+    <EditorBottomStack
       panelPosition={panelPosition}
       terminalVisible={terminalVisible}
       terminalMinimized={terminalMinimized}
       docsOnBottom={docsOnBottom}
       documentationMinimized={documentationMinimized}
+      outputOnBottom={outputOnBottom}
+      outputMinimized={outputMinimized}
       editor={editor}
       terminal={terminal}
       documentation={documentation}
+      output={output}
     />
   );
 
@@ -269,75 +295,142 @@ function LayoutBody({
     );
   }
 
-  if (!docsOnSide) {
+  const leftSide: { id: string; node: ReactNode; minimized: boolean }[] = [];
+  const rightSide: { id: string; node: ReactNode; minimized: boolean }[] = [];
+
+  if (docsOnSide) {
+    const item = {
+      id: "documentation",
+      node: documentation,
+      minimized: documentationMinimized,
+    };
+    if (docsPosition === "left") leftSide.push(item);
+    else rightSide.push(item);
+  }
+  if (outputOnSide) {
+    const item = {
+      id: "output",
+      node: output,
+      minimized: outputMinimized,
+    };
+    if (outputPosition === "left") leftSide.push(item);
+    else rightSide.push(item);
+  }
+
+  if (!leftSide.length && !rightSide.length) {
     return <div className="h-full w-full overflow-hidden">{main}</div>;
   }
 
-  const docsPanel = (
-    <CollapsiblePane
-      id="documentation"
-      defaultSize="28%"
-      minSize="16%"
-      maxSize="50%"
-      collapsedSize="2rem"
-      minimized={documentationMinimized}
-    >
-      {documentation}
-    </CollapsiblePane>
-  );
-
-  const contentPanel = (
-    <Panel
-      id="content"
-      defaultSize="72%"
-      minSize="40%"
-      className="min-h-0 overflow-hidden"
-    >
-      {main}
-    </Panel>
-  );
-
-  const sep = (
-    <ResizeSeparator className="w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
-  );
-
   return (
     <Group orientation="horizontal" className="h-full w-full">
-      {docsPosition === "left" ? (
+      {leftSide.length > 0 && (
         <>
-          {docsPanel}
-          {sep}
-          {contentPanel}
+          <SidePaneStack panes={leftSide} />
+          <ResizeSeparator className="w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
         </>
-      ) : (
+      )}
+      <Panel
+        id="content"
+        defaultSize="72%"
+        minSize="40%"
+        className="min-h-0 overflow-hidden"
+      >
+        {main}
+      </Panel>
+      {rightSide.length > 0 && (
         <>
-          {contentPanel}
-          {sep}
-          {docsPanel}
+          <ResizeSeparator className="w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
+          <SidePaneStack panes={rightSide} />
         </>
       )}
     </Group>
   );
 }
 
-function EditorTerminalDocsStack({
+function SidePaneStack({
+  panes,
+}: {
+  panes: { id: string; node: ReactNode; minimized: boolean }[];
+}) {
+  if (panes.length === 1) {
+    const p = panes[0];
+    return (
+      <CollapsiblePane
+        id={p.id}
+        defaultSize="28%"
+        minSize="16%"
+        maxSize="50%"
+        collapsedSize="2rem"
+        minimized={p.minimized}
+      >
+        {p.node}
+      </CollapsiblePane>
+    );
+  }
+
+  const children: ReactNode[] = [];
+  panes.forEach((p, i) => {
+    if (i > 0) {
+      children.push(
+        <ResizeSeparator
+          key={`side-sep-${p.id}`}
+          className="h-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]"
+        />
+      );
+    }
+    children.push(
+      <CollapsiblePane
+        key={p.id}
+        id={p.id}
+        defaultSize={`${Math.floor(100 / panes.length)}%`}
+        minSize="20%"
+        collapsedSize="2rem"
+        minimized={p.minimized}
+      >
+        {p.node}
+      </CollapsiblePane>
+    );
+  });
+
+  return (
+    <Panel
+      id={`side-stack-${panes.map((p) => p.id).join("-")}`}
+      defaultSize="28%"
+      minSize="16%"
+      maxSize="50%"
+      className="min-h-0 overflow-hidden"
+    >
+      <Group orientation="vertical" className="h-full w-full">
+        {children}
+      </Group>
+    </Panel>
+  );
+}
+
+function EditorBottomStack({
   panelPosition,
   terminalVisible,
   terminalMinimized,
   docsOnBottom,
   documentationMinimized,
+  outputOnBottom,
+  outputMinimized,
   editor,
   terminal,
   documentation,
+  output,
 }: {
   panelPosition: "bottom" | "right" | "left";
   terminalVisible: boolean;
   terminalMinimized: boolean;
   docsOnBottom: boolean;
   documentationMinimized: boolean;
+  outputOnBottom: boolean;
+  outputMinimized: boolean;
   editor: ReactNode;
   terminal: ReactNode;
   documentation: ReactNode;
+  output: ReactNode;
 }) {
   const bottomExtras: ReactNode[] = [];
   if (terminalVisible && panelPosition === "bottom") {
@@ -345,7 +438,7 @@ function EditorTerminalDocsStack({
       <CollapsiblePane
         key="terminal"
         id="terminal"
-        defaultSize={docsOnBottom ? "50%" : "28%"}
+        defaultSize="28%"
         minSize="12%"
         collapsedSize="2rem"
         minimized={terminalMinimized}
@@ -359,7 +452,7 @@ function EditorTerminalDocsStack({
       <CollapsiblePane
         key="documentation-bottom"
         id="documentation-bottom"
-        defaultSize={terminalVisible && panelPosition === "bottom" ? "50%" : "28%"}
+        defaultSize="28%"
         minSize="12%"
         collapsedSize="2rem"
         minimized={documentationMinimized}
@@ -368,8 +461,21 @@ function EditorTerminalDocsStack({
       </CollapsiblePane>
     );
   }
+  if (outputOnBottom) {
+    bottomExtras.push(
+      <CollapsiblePane
+        key="output-bottom"
+        id="output-bottom"
+        defaultSize="28%"
+        minSize="12%"
+        collapsedSize="2rem"
+        minimized={outputMinimized}
+      >
+        {output}
+      </CollapsiblePane>
+    );
+  }
 
-  // Side-docked terminal (not bottom)
   const sideTerminal =
     terminalVisible && panelPosition !== "bottom" ? (
       <CollapsiblePane
@@ -410,9 +516,17 @@ function EditorTerminalDocsStack({
           className="min-h-0 overflow-hidden"
         >
           <Group orientation="horizontal" className="h-full w-full">
-            {bottomExtras[0]}
-            <ResizeSeparator className="w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]" />
-            {bottomExtras[1]}
+            {bottomExtras.flatMap((node, i) =>
+              i === 0
+                ? [node]
+                : [
+                    <ResizeSeparator
+                      key={`sep-${i}`}
+                      className="w-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]"
+                    />,
+                    node,
+                  ]
+            )}
           </Group>
         </Panel>
       );

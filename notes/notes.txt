@@ -1,5 +1,15 @@
+[ideas]
+1. When creating a new file and a template is selected, there should be a preview of the template file shown
+   in the same window as the create new file option, but in a seperate pane to the right. If no template is 
+   selected this pane is blank. A placeholder text can be displayed in this pane at the center that says 
+   "preview" in a dark font when no template is selected.
+
+[done / partial]
+- OpenEdge compile/run via local OE agent + Output pane (batch _progres; not full OS shell / prowin UI)
+
 [future]
-- Real OS shell / OpenEdge compiler / Progress runtime
+- Real OS shell (terminal still virtual cwd only)
+- Interactive Progress GUI (prowin) / richer runtime I/O
 - Language Server Protocol / full semantic analysis
 - Electron/desktop packaging
 - Multi-user auth or cloud sync

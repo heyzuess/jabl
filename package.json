@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start -p 43127 -H 127.0.0.1",
     "lint": "eslint",
+    "oe-agent": "node tools/oe-agent/server.mjs",
     "scrape:builtins": "node scripts/scrape-builtin-types.mjs --progress --openedge",
     "verify:builtins": "node scripts/scrape-builtin-types.mjs --verify"
   },

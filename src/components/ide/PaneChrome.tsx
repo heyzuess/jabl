@@ -52,10 +52,15 @@ export function PaneChrome({
         ? minimized.terminal
         : pane === "documentation"
           ? minimized.documentation
-          : false;
+          : pane === "output"
+            ? minimized.output
+            : false;
 
   const canDock =
-    pane === "explorer" || pane === "terminal" || pane === "documentation";
+    pane === "explorer" ||
+    pane === "terminal" ||
+    pane === "documentation" ||
+    pane === "output";
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!canDock || editorMode) return;

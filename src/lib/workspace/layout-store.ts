@@ -2,7 +2,12 @@
 
 import { create } from "zustand";
 
-export type PaneId = "explorer" | "editor" | "terminal" | "documentation";
+export type PaneId =
+  | "explorer"
+  | "editor"
+  | "terminal"
+  | "documentation"
+  | "output";
 export type SidebarSide = "left" | "right";
 export type PanelPosition = "bottom" | "right" | "left";
 export type SnapZone =
@@ -18,14 +23,17 @@ export type LayoutState = {
   sidebarVisible: boolean;
   terminalVisible: boolean;
   documentationVisible: boolean;
+  outputVisible: boolean;
   sidebarSide: SidebarSide;
   panelPosition: PanelPosition;
   docsPosition: PanelPosition;
+  outputPosition: PanelPosition;
   maximized: PaneId | null;
   minimized: {
     explorer: boolean;
     terminal: boolean;
     documentation: boolean;
+    output: boolean;
   };
   /** Ephemeral: which secondary pane chrome is being dragged for snap */
   draggingPane: DockablePane | null;
@@ -34,12 +42,15 @@ export type LayoutState = {
   toggleSidebar: () => void;
   toggleTerminal: () => void;
   toggleDocumentation: () => void;
+  toggleOutput: () => void;
   setSidebarVisible: (visible: boolean) => void;
   setTerminalVisible: (visible: boolean) => void;
   setDocumentationVisible: (visible: boolean) => void;
+  setOutputVisible: (visible: boolean) => void;
   setSidebarSide: (side: SidebarSide) => void;
   setPanelPosition: (position: PanelPosition) => void;
   setDocsPosition: (position: PanelPosition) => void;
+  setOutputPosition: (position: PanelPosition) => void;
   maximizePane: (pane: PaneId) => void;
   restoreLayout: () => void;
   toggleMaximize: (pane: PaneId) => void;
@@ -52,20 +63,24 @@ export type LayoutState = {
   applySnap: (pane: DockablePane, zone: SnapZone) => void;
   /** Show documentation pane and optionally focus a topic opener callback side-effect */
   revealDocumentation: () => void;
+  revealOutput: () => void;
 };
 
 type PersistedLayout = {
   sidebarVisible: boolean;
   terminalVisible: boolean;
   documentationVisible: boolean;
+  outputVisible: boolean;
   sidebarSide: SidebarSide;
   panelPosition: PanelPosition;
   docsPosition: PanelPosition;
+  outputPosition: PanelPosition;
   maximized: PaneId | null;
   minimized: {
     explorer: boolean;
     terminal: boolean;
     documentation: boolean;
+    output: boolean;
   };
 };
 
@@ -75,14 +90,17 @@ const DEFAULT_LAYOUT: PersistedLayout = {
   sidebarVisible: true,
   terminalVisible: true,
   documentationVisible: false,
+  outputVisible: false,
   sidebarSide: "left",
   panelPosition: "bottom",
   docsPosition: "right",
+  outputPosition: "bottom",
   maximized: null,
   minimized: {
     explorer: false,
     terminal: false,
     documentation: false,
+    output: false,
   },
 };
 
@@ -91,7 +109,8 @@ function isPaneId(v: unknown): v is PaneId {
     v === "explorer" ||
     v === "editor" ||
     v === "terminal" ||
-    v === "documentation"
+    v === "documentation" ||
+    v === "output"
   );
 }
 
@@ -109,6 +128,7 @@ function loadPersisted(): PersistedLayout {
       sidebarVisible: parsed.sidebarVisible ?? true,
       terminalVisible: parsed.terminalVisible ?? true,
       documentationVisible: parsed.documentationVisible ?? false,
+      outputVisible: parsed.outputVisible ?? false,
       sidebarSide: parsed.sidebarSide === "right" ? "right" : "left",
       panelPosition: isPanelPosition(parsed.panelPosition)
         ? parsed.panelPosition
@@ -116,11 +136,15 @@ function loadPersisted(): PersistedLayout {
       docsPosition: isPanelPosition(parsed.docsPosition)
         ? parsed.docsPosition
         : "right",
+      outputPosition: isPanelPosition(parsed.outputPosition)
+        ? parsed.outputPosition
+        : "bottom",
       maximized: isPaneId(parsed.maximized) ? parsed.maximized : null,
       minimized: {
         explorer: !!parsed.minimized?.explorer,
         terminal: !!parsed.minimized?.terminal,
         documentation: !!parsed.minimized?.documentation,
+        output: !!parsed.minimized?.output,
       },
     };
   } catch {
@@ -134,9 +158,11 @@ function persist(state: LayoutState) {
     sidebarVisible: state.sidebarVisible,
     terminalVisible: state.terminalVisible,
     documentationVisible: state.documentationVisible,
+    outputVisible: state.outputVisible,
     sidebarSide: state.sidebarSide,
     panelPosition: state.panelPosition,
     docsPosition: state.docsPosition,
+    outputPosition: state.outputPosition,
     maximized: state.maximized,
     minimized: state.minimized,
   };
@@ -148,7 +174,12 @@ function persist(state: LayoutState) {
 }
 
 function clearMinimized(): LayoutState["minimized"] {
-  return { explorer: false, terminal: false, documentation: false };
+  return {
+    explorer: false,
+    terminal: false,
+    documentation: false,
+    output: false,
+  };
 }
 
 function applySnapToState(
@@ -212,6 +243,38 @@ function applySnapToState(
     };
   }
 
+  if (pane === "output") {
+    if (zone === "bottom") {
+      return {
+        outputVisible: true,
+        outputPosition: "bottom",
+        maximized: null,
+        minimized: { ...state.minimized, output: false },
+      };
+    }
+    if (zone === "left" || zone === "center-left") {
+      return {
+        outputVisible: true,
+        outputPosition: "left",
+        maximized: null,
+        minimized: { ...state.minimized, output: false },
+      };
+    }
+    if (zone === "right" || zone === "center-right") {
+      return {
+        outputVisible: true,
+        outputPosition: "right",
+        maximized: null,
+        minimized: { ...state.minimized, output: false },
+      };
+    }
+    return {
+      outputVisible: true,
+      maximized: null,
+      minimized: { ...state.minimized, output: false },
+    };
+  }
+
   // terminal
   if (zone === "bottom") {
     return {
@@ -242,6 +305,15 @@ function applySnapToState(
     maximized: null,
     minimized: { ...state.minimized, terminal: false },
   };
+}
+
+function visibilityPatchForMinimize(
+  pane: DockablePane
+): Partial<LayoutState> {
+  if (pane === "explorer") return { sidebarVisible: true };
+  if (pane === "terminal") return { terminalVisible: true };
+  if (pane === "documentation") return { documentationVisible: true };
+  return { outputVisible: true };
 }
 
 const initial = loadPersisted();
@@ -296,6 +368,21 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     });
   },
 
+  toggleOutput: () => {
+    set((s) => {
+      const next = {
+        ...s,
+        outputVisible: !s.outputVisible,
+        maximized: s.maximized === "output" ? null : s.maximized,
+        minimized: s.outputVisible
+          ? s.minimized
+          : { ...s.minimized, output: false },
+      };
+      persist(next);
+      return next;
+    });
+  },
+
   setSidebarVisible: (visible) => {
     set((s) => {
       const next = {
@@ -342,6 +429,19 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     });
   },
 
+  setOutputVisible: (visible) => {
+    set((s) => {
+      const next = {
+        ...s,
+        outputVisible: visible,
+        maximized: !visible && s.maximized === "output" ? null : s.maximized,
+        minimized: visible ? { ...s.minimized, output: false } : s.minimized,
+      };
+      persist(next);
+      return next;
+    });
+  },
+
   revealDocumentation: () => {
     set((s) => {
       const next = {
@@ -350,6 +450,19 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         maximized:
           s.maximized === "documentation" ? s.maximized : null,
         minimized: { ...s.minimized, documentation: false },
+      };
+      persist(next);
+      return next;
+    });
+  },
+
+  revealOutput: () => {
+    set((s) => {
+      const next = {
+        ...s,
+        outputVisible: true,
+        maximized: s.maximized === "output" ? s.maximized : null,
+        minimized: { ...s.minimized, output: false },
       };
       persist(next);
       return next;
@@ -384,6 +497,19 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         docsPosition: position,
         documentationVisible: true,
         minimized: { ...s.minimized, documentation: false },
+      };
+      persist(next);
+      return next;
+    });
+  },
+
+  setOutputPosition: (position) => {
+    set((s) => {
+      const next = {
+        ...s,
+        outputPosition: position,
+        outputVisible: true,
+        minimized: { ...s.minimized, output: false },
       };
       persist(next);
       return next;
@@ -429,11 +555,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         ...s,
         maximized: s.maximized === pane ? null : s.maximized,
         minimized: { ...s.minimized, [pane]: true },
-        ...(pane === "explorer"
-          ? { sidebarVisible: true }
-          : pane === "terminal"
-            ? { terminalVisible: true }
-            : { documentationVisible: true }),
+        ...visibilityPatchForMinimize(pane),
       };
       persist(next);
       return next;
@@ -475,6 +597,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
           documentationVisible: false,
           maximized: s.maximized === "documentation" ? null : s.maximized,
           minimized: { ...s.minimized, documentation: false },
+        };
+      } else if (pane === "output") {
+        next = {
+          ...s,
+          outputVisible: false,
+          maximized: s.maximized === "output" ? null : s.maximized,
+          minimized: { ...s.minimized, output: false },
         };
       }
       persist(next);

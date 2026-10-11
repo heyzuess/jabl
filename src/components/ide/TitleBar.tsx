@@ -9,10 +9,12 @@ import {
   FolderOpen,
   Moon,
   Palette,
+  Play,
   Save,
   ScanSearch,
   Sun,
   Files,
+  Hammer,
 } from "lucide-react";
 import { languageIdForPath } from "@/lib/abl/register";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,7 @@ import {
   MAX_EDITOR_GROUPS,
   useEditorLayoutStore,
 } from "@/lib/workspace/editor-layout-store";
+import { executeAbl } from "@/lib/oe/execute";
 import type { ThemeMode } from "@/lib/theme/themes";
 
 type TitleBarProps = {
@@ -78,19 +81,24 @@ export function TitleBar({
   const fsMode = useWorkspaceStore((s) => s.mode);
   const canDebugAbl =
     !!activePath && languageIdForPath(activePath) === "abl";
+  const canRunAbl = canDebugAbl;
 
   const sidebarVisible = useLayoutStore((s) => s.sidebarVisible);
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
   const documentationVisible = useLayoutStore((s) => s.documentationVisible);
+  const outputVisible = useLayoutStore((s) => s.outputVisible);
   const sidebarSide = useLayoutStore((s) => s.sidebarSide);
   const panelPosition = useLayoutStore((s) => s.panelPosition);
   const docsPosition = useLayoutStore((s) => s.docsPosition);
+  const outputPosition = useLayoutStore((s) => s.outputPosition);
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
   const toggleTerminal = useLayoutStore((s) => s.toggleTerminal);
   const toggleDocumentation = useLayoutStore((s) => s.toggleDocumentation);
+  const toggleOutput = useLayoutStore((s) => s.toggleOutput);
   const setSidebarSide = useLayoutStore((s) => s.setSidebarSide);
   const setPanelPosition = useLayoutStore((s) => s.setPanelPosition);
   const setDocsPosition = useLayoutStore((s) => s.setDocsPosition);
+  const setOutputPosition = useLayoutStore((s) => s.setOutputPosition);
   const restoreLayout = useLayoutStore((s) => s.restoreLayout);
   const maximized = useLayoutStore((s) => s.maximized);
   const splitFocused = useEditorLayoutStore((s) => s.splitFocused);
@@ -238,6 +246,12 @@ export function TitleBar({
               >
                 Documentation
               </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={outputVisible}
+                onCheckedChange={() => toggleOutput()}
+              >
+                Output
+              </DropdownMenuCheckboxItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -306,6 +320,24 @@ export function TitleBar({
               >
                 Move Documentation Right
               </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={outputPosition === "bottom" && outputVisible}
+                onClick={() => setOutputPosition("bottom")}
+              >
+                Move Output Bottom
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={outputPosition === "left" && outputVisible}
+                onClick={() => setOutputPosition("left")}
+              >
+                Move Output Left
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={outputPosition === "right" && outputVisible}
+                onClick={() => setOutputPosition("right")}
+              >
+                Move Output Right
+              </DropdownMenuItem>
             </DropdownMenuGroup>
             {maximized && (
               <>
@@ -315,6 +347,38 @@ export function TitleBar({
                 </DropdownMenuItem>
               </>
             )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 text-xs"
+              />
+            }
+          >
+            Run
+            <ChevronDown className="size-3 opacity-70" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-52">
+            <DropdownMenuItem
+              disabled={!canRunAbl}
+              onClick={() => void executeAbl("compile")}
+            >
+              <Hammer className="size-3.5" />
+              Compile
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canRunAbl}
+              onClick={() => void executeAbl("run")}
+            >
+              <Play className="size-3.5" />
+              Run
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 

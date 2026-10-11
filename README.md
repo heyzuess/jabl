@@ -7,11 +7,12 @@ A VS Code–like browser IDE for **OpenEdge ABL** built with Next.js, Monaco, an
 - **Monaco ABL language** — Monarch tokenizer + keyword/snippet/built-in completions
 - **Syntax check** — structural ABL checker (unclosed strings/comments/blocks); **Debug → Check Syntax** or terminal `check [path]`; Monaco squiggles on the active buffer
 - **Simulated debugger** — line-step session with breakpoints (no Progress runtime); **Debug → Start Debugger** or terminal `debug` / `break` / `step` / `continue` / `vars` / `quit`
+- **OpenEdge compile / run** — packages includes/classes/`RUN` deps and sends them to a local OE agent; results appear in the **Output** pane (**Run → Compile / Run**, or terminal `compile` / `run`)
 - **New File** — create an unsaved tab from Blank, Procedure, Class, or Include templates; Save writes locally (`showSaveFilePicker` or download)
 - **Workspace** — `showDirectoryPicker` when available; `<input webkitdirectory>` fallback (save downloads the file)
 - **Sample project** — `public/samples/abl/` loads automatically so you can try the IDE immediately
 - **Themes** — dark default, light toggle, and a customization panel (persisted in `localStorage`)
-- **Terminal** — xterm.js over the virtual workspace only (no OS shell / Progress runtime)
+- **Terminal** — xterm.js over the virtual workspace only (no OS shell)
 
 ## Requirements
 
@@ -29,6 +30,20 @@ npm run dev
 Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
 To edit without a folder: **File → New File…** (or **Ctrl/Cmd+N**) → choose a template → edit (dirty tabs show `*`) → **File → Save** (**Ctrl/Cmd+S**).
+
+### OpenEdge agent (compile / run)
+
+Compile and Run need a local Progress/OpenEdge install and the OE agent:
+
+```bash
+# In a separate terminal — DLC must point at your OpenEdge install
+export DLC=/path/to/dlc
+npm run oe-agent
+```
+
+The agent listens on `http://127.0.0.1:43128`. The Next.js app proxies `/api/oe/run` there (`OE_AGENT_URL` overrides the default). Then use **Run → Compile** / **Run → Run**, or terminal `compile` / `run`. Output (stdout, stderr, compile messages) appears in the **Output** pane (**View → Output**).
+
+Without the agent or `DLC`, the IDE still works for editing; Compile/Run show a clear error in Output.
 
 Or production:
 
@@ -86,4 +101,4 @@ See [`notes/errors.txt`](notes/errors.txt) for a captured example of this failur
 
 ## Out of scope
 
-See [`notes/notes.txt`](notes/notes.txt) under `[future]` — real OpenEdge compiler/runtime, LSP, Electron packaging, and multi-user auth are not part of this slice.
+See [`notes/notes.txt`](notes/notes.txt) under `[future]` — full OS shell, interactive `prowin` UI, LSP, Electron packaging, and multi-user auth are not part of this slice. Agent-backed batch compile/run is supported when OpenEdge is installed locally.
