@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   ABL_TEMPLATES,
+  ensureTemplateExtension,
   getTemplate,
   languageForFilename,
   type AblTemplateId,
@@ -56,14 +57,21 @@ export function NewFileDialog({ open, onOpenChange }: NewFileDialogProps) {
 
   const selectTemplate = (id: AblTemplateId) => {
     setTemplateId(id);
+    const template = getTemplate(id);
     if (!filenameTouched) {
-      setFilename(getTemplate(id).defaultFilename);
+      setFilename(template.defaultFilename);
+      return;
     }
+    // Keep the typed stem; append template extension when none is present.
+    setFilename(ensureTemplateExtension(filename, template));
   };
 
   const create = async () => {
     const template = getTemplate(templateId);
-    const name = filename.trim() || template.defaultFilename;
+    const name = ensureTemplateExtension(
+      filename.trim() || template.defaultFilename,
+      template
+    );
     setCreating(true);
     try {
       if (root && dirPath) {

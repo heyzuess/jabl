@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -8,6 +9,8 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAblFile } from "@/lib/abl/keywords";
@@ -20,9 +23,11 @@ import { PaneChrome } from "./PaneChrome";
 function TreeNode({
   node,
   depth,
+  isRoot = false,
 }: {
   node: FileNode;
   depth: number;
+  isRoot?: boolean;
 }) {
   const isOpen = useWorkspaceStore((s) => s.expanded.has(node.path));
   const toggleExpanded = useWorkspaceStore((s) => s.toggleExpanded);
@@ -30,10 +35,38 @@ function TreeNode({
   const setCwd = useWorkspaceStore((s) => s.setCwd);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
   const openNewFolderDialog = useWorkspaceStore((s) => s.openNewFolderDialog);
+  const renameEntry = useWorkspaceStore((s) => s.renameEntry);
+  const deleteEntry = useWorkspaceStore((s) => s.deleteEntry);
   const isActive = useWorkspaceStore((s) => s.activePath === node.path);
   const isCwd = useWorkspaceStore((s) => s.cwd === node.path);
   const isDirty = useWorkspaceStore((s) => !!s.dirty[node.path]);
   const abl = node.kind === "file" && isAblFile(node.name);
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState(node.name);
+
+  const startRename = () => {
+    setDraftName(node.name);
+    setRenaming(true);
+  };
+
+  const commitRename = () => {
+    const next = draftName.trim();
+    setRenaming(false);
+    if (!next || next === node.name) return;
+    void renameEntry(node.path, next);
+  };
+
+  const confirmDelete = () => {
+    const label =
+      node.kind === "directory"
+        ? `Delete folder "${node.name}" and everything inside?`
+        : `Delete file "${node.name}"?`;
+    if (!window.confirm(label)) return;
+    void deleteEntry(node.path);
+  };
+
+  const actionBtnClass =
+    "inline-flex size-5 shrink-0 items-center justify-center rounded opacity-0 hover:bg-accent group-hover:opacity-100 focus-visible:opacity-100";
 
   if (node.kind === "directory") {
     return (
@@ -45,32 +78,51 @@ function TreeNode({
           )}
           style={{ paddingLeft: 4 + depth * 12 }}
         >
-          <button
-            type="button"
-            className="flex min-w-0 flex-1 items-center gap-1 py-0.5 text-left hover:bg-accent/60"
-            onClick={() => {
-              toggleExpanded(node.path);
-              setCwd(node.path);
-            }}
-            title={node.path}
-          >
-            {isOpen ? (
-              <ChevronDown className="size-3 shrink-0 opacity-70" />
-            ) : (
-              <ChevronRight className="size-3 shrink-0 opacity-70" />
-            )}
-            {isOpen ? (
-              <FolderOpen className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
-            ) : (
-              <Folder className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
-            )}
-            <span className="truncate">{node.name}</span>
-          </button>
+          {renaming ? (
+            <input
+              className="m-0.5 h-6 min-w-0 flex-1 rounded border border-[var(--ide-accent)] bg-background px-1 font-mono text-xs outline-none"
+              value={draftName}
+              autoFocus
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={() => commitRename()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitRename();
+                if (e.key === "Escape") setRenaming(false);
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center gap-1 py-0.5 text-left hover:bg-accent/60"
+              onClick={() => {
+                toggleExpanded(node.path);
+                setCwd(node.path);
+              }}
+              onDoubleClick={(e) => {
+                e.preventDefault();
+                if (!isRoot) startRename();
+              }}
+              title={node.path}
+            >
+              {isOpen ? (
+                <ChevronDown className="size-3 shrink-0 opacity-70" />
+              ) : (
+                <ChevronRight className="size-3 shrink-0 opacity-70" />
+              )}
+              {isOpen ? (
+                <FolderOpen className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
+              ) : (
+                <Folder className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
+              )}
+              <span className="truncate">{node.name}</span>
+            </button>
+          )}
           <button
             type="button"
             title={`New file in ${node.name}`}
             aria-label={`New file in ${node.name}`}
-            className="inline-flex size-5 shrink-0 items-center justify-center rounded opacity-0 hover:bg-accent group-hover:opacity-100 focus-visible:opacity-100"
+            className={actionBtnClass}
             onClick={(e) => {
               e.stopPropagation();
               setCwd(node.path);
@@ -84,7 +136,7 @@ function TreeNode({
             type="button"
             title={`New folder in ${node.name}`}
             aria-label={`New folder in ${node.name}`}
-            className="inline-flex size-5 shrink-0 items-center justify-center rounded opacity-0 hover:bg-accent group-hover:opacity-100 focus-visible:opacity-100"
+            className={actionBtnClass}
             onClick={(e) => {
               e.stopPropagation();
               setCwd(node.path);
@@ -94,6 +146,36 @@ function TreeNode({
           >
             <FolderPlus className="size-3" />
           </button>
+          {!isRoot && (
+            <>
+              <button
+                type="button"
+                title={`Rename ${node.name}`}
+                aria-label={`Rename ${node.name}`}
+                className={actionBtnClass}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startRename();
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <Pencil className="size-3" />
+              </button>
+              <button
+                type="button"
+                title={`Delete ${node.name}`}
+                aria-label={`Delete ${node.name}`}
+                className={actionBtnClass}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  confirmDelete();
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <Trash2 className="size-3" />
+              </button>
+            </>
+          )}
         </div>
         {isOpen &&
           (node.children ?? []).map((child) => (
@@ -104,31 +186,83 @@ function TreeNode({
   }
 
   return (
-    <button
-      type="button"
+    <div
       className={cn(
-        "flex w-full items-center gap-1 rounded-sm px-1 py-0.5 text-left text-xs hover:bg-accent/60",
-        isActive && "bg-accent text-accent-foreground",
-        abl && !isActive && "text-[var(--ide-keyword)]"
+        "group flex w-full items-center gap-0.5 rounded-sm pr-0.5 text-xs",
+        isActive && "bg-accent text-accent-foreground"
       )}
       style={{ paddingLeft: 4 + depth * 12 + 14 }}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        void openFile(node.path);
-      }}
     >
-      <FileCode2
-        className={cn(
-          "size-3.5 shrink-0",
-          abl ? "text-[var(--ide-keyword)]" : "opacity-60"
-        )}
-      />
-      <span className="truncate">
-        {node.name}
-        {isDirty ? " *" : ""}
-      </span>
-    </button>
+      {renaming ? (
+        <input
+          className="m-0.5 h-6 min-w-0 flex-1 rounded border border-[var(--ide-accent)] bg-background px-1 font-mono text-xs outline-none"
+          value={draftName}
+          autoFocus
+          onChange={(e) => setDraftName(e.target.value)}
+          onBlur={() => commitRename()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitRename();
+            if (e.key === "Escape") setRenaming(false);
+          }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <button
+          type="button"
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-1 py-0.5 text-left hover:bg-accent/60",
+            abl && !isActive && "text-[var(--ide-keyword)]"
+          )}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void openFile(node.path);
+          }}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            startRename();
+          }}
+          title={node.path}
+        >
+          <FileCode2
+            className={cn(
+              "size-3.5 shrink-0",
+              abl ? "text-[var(--ide-keyword)]" : "opacity-60"
+            )}
+          />
+          <span className="truncate">
+            {node.name}
+            {isDirty ? " *" : ""}
+          </span>
+        </button>
+      )}
+      <button
+        type="button"
+        title={`Rename ${node.name}`}
+        aria-label={`Rename ${node.name}`}
+        className={actionBtnClass}
+        onClick={(e) => {
+          e.stopPropagation();
+          startRename();
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <Pencil className="size-3" />
+      </button>
+      <button
+        type="button"
+        title={`Delete ${node.name}`}
+        aria-label={`Delete ${node.name}`}
+        className={actionBtnClass}
+        onClick={(e) => {
+          e.stopPropagation();
+          confirmDelete();
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <Trash2 className="size-3" />
+      </button>
+    </div>
   );
 }
 
@@ -191,8 +325,6 @@ export function FileExplorer() {
   const openNewFolderDialog = useWorkspaceStore((s) => s.openNewFolderDialog);
   const explorerMinimized = useLayoutStore((s) => s.minimized.explorer);
 
-  // Open files = every open tab that is not an unsaved new buffer
-  // (workspace files + outside/local files).
   const openFileTabs = openTabs.filter(
     (t) => !t.unsaved && !isUntitledPath(t.path)
   );
@@ -251,7 +383,7 @@ export function FileExplorer() {
               <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {root.name}
               </p>
-              <TreeNode node={root} depth={0} />
+              <TreeNode node={root} depth={0} isRoot />
             </>
           )}
           <TabSection title="Open files" tabs={openFileTabs} />

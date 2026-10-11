@@ -13,10 +13,16 @@ import {
   isUntitledPath,
   listDirectory,
   normalizePath,
+  parentDirPath,
   pickDirectory,
   pickOpenFiles,
   readAttachedFile,
   readFileHandle,
+  remapPathPrefix,
+  removeChildNode,
+  removeEntryFromDirectory,
+  renameHandle,
+  renameNodeInTree,
   resolveDirectoryHandle,
   saveTextFileLocally,
   supportsDirectoryPicker,
@@ -90,6 +96,8 @@ export type WorkspaceState = {
   createUntitledFile: (input: CreateUntitledInput) => void;
   createNewFile: (input: CreateNewFileInput) => Promise<void>;
   createNewFolder: (parentDir: string, name: string) => Promise<void>;
+  renameEntry: (path: string, newName: string) => Promise<void>;
+  deleteEntry: (path: string) => Promise<void>;
   setActivePath: (path: string) => void;
   closeTab: (path: string) => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
@@ -767,6 +775,172 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       expanded,
       cwd: newPath,
       statusMessage: `Created folder ${newPath}`,
+    });
+  },
+
+  renameEntry: async (path, newName) => {
+    const { root, rootName, mode, openTabs, buffers, dirty, expanded, cwd, activePath } =
+      get();
+    if (!root || !rootName) {
+      set({ statusMessage: "No folder open" });
+      return;
+    }
+    if (path === root.path || path === rootName) {
+      set({ statusMessage: "Cannot rename the workspace root" });
+      return;
+    }
+    const node = findNode(root, path);
+    if (!node) {
+      set({ statusMessage: `Not found: ${path}` });
+      return;
+    }
+    const safeName = newName.trim().replace(/[/\\]/g, "");
+    if (!safeName) {
+      set({ statusMessage: "Name required" });
+      return;
+    }
+    if (safeName === node.name) return;
+
+    const parentPath = parentDirPath(path);
+    const parent = findNode(root, parentPath);
+    if (!parent || parent.kind !== "directory") {
+      set({ statusMessage: "Parent directory not found" });
+      return;
+    }
+    const conflict = (parent.children || []).some(
+      (c) =>
+        c.path !== path &&
+        c.name.toLowerCase() === safeName.toLowerCase()
+    );
+    if (conflict) {
+      set({ statusMessage: `Already exists: ${safeName}` });
+      return;
+    }
+
+    const newPath = `${parentPath}/${safeName}`;
+
+    if (mode === "fs-access") {
+      if (!node.handle) {
+        set({
+          statusMessage: "Rename is not supported for this entry",
+        });
+        return;
+      }
+      try {
+        await renameHandle(node.handle, safeName);
+      } catch (err) {
+        set({
+          statusMessage: `Rename failed: ${(err as Error).message}`,
+        });
+        return;
+      }
+    }
+
+    const nextRoot = renameNodeInTree(root, path, safeName);
+    const nextExpanded = new Set(
+      [...expanded].map((p) => remapPathPrefix(p, path, newPath))
+    );
+    const nextBuffers: Record<string, string> = {};
+    for (const [k, v] of Object.entries(buffers)) {
+      nextBuffers[remapPathPrefix(k, path, newPath)] = v;
+    }
+    const nextDirty: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(dirty)) {
+      nextDirty[remapPathPrefix(k, path, newPath)] = v;
+    }
+    const nextTabs = openTabs.map((t) => {
+      const next = remapPathPrefix(t.path, path, newPath);
+      if (next === t.path) return t;
+      return {
+        ...t,
+        path: next,
+        name: next.split("/").pop() || t.name,
+        language: languageForFilename(next.split("/").pop() || t.name),
+      };
+    });
+    editorLayout().remapPathPrefix(path, newPath);
+    set({
+      root: nextRoot,
+      expanded: nextExpanded,
+      buffers: nextBuffers,
+      dirty: nextDirty,
+      openTabs: nextTabs,
+      cwd: remapPathPrefix(cwd, path, newPath),
+      activePath: activePath
+        ? remapPathPrefix(activePath, path, newPath)
+        : null,
+      statusMessage: `Renamed to ${safeName}`,
+    });
+  },
+
+  deleteEntry: async (path) => {
+    const { root, rootName, mode, openTabs, buffers, dirty, expanded, cwd, activePath } =
+      get();
+    if (!root || !rootName) {
+      set({ statusMessage: "No folder open" });
+      return;
+    }
+    if (path === root.path || path === rootName) {
+      set({ statusMessage: "Cannot delete the workspace root" });
+      return;
+    }
+    const node = findNode(root, path);
+    if (!node) {
+      set({ statusMessage: `Not found: ${path}` });
+      return;
+    }
+
+    const parentPath = parentDirPath(path);
+    if (mode === "fs-access") {
+      const parentHandle = resolveDirectoryHandle(root, parentPath);
+      if (!parentHandle) {
+        set({ statusMessage: "Parent directory is not writable" });
+        return;
+      }
+      try {
+        await removeEntryFromDirectory(
+          parentHandle,
+          node.name,
+          node.kind === "directory"
+        );
+      } catch (err) {
+        set({
+          statusMessage: `Delete failed: ${(err as Error).message}`,
+        });
+        return;
+      }
+    }
+
+    const matches = (p: string) => p === path || p.startsWith(`${path}/`);
+    const nextRoot = removeChildNode(root, path);
+    const nextExpanded = new Set([...expanded].filter((p) => !matches(p)));
+    const nextBuffers = { ...buffers };
+    const nextDirty = { ...dirty };
+    for (const key of Object.keys(nextBuffers)) {
+      if (matches(key)) delete nextBuffers[key];
+    }
+    for (const key of Object.keys(nextDirty)) {
+      if (matches(key)) delete nextDirty[key];
+    }
+    const nextTabs = openTabs.filter((t) => !matches(t.path));
+    editorLayout().closePathsUnder(path);
+
+    let nextActive = activePath && matches(activePath) ? null : activePath;
+    if (!nextActive && nextTabs.length) {
+      nextActive = nextTabs[nextTabs.length - 1].path;
+    }
+    const nextCwd =
+      cwd && matches(cwd) ? parentPath || rootName : cwd;
+
+    set({
+      root: nextRoot,
+      expanded: nextExpanded,
+      buffers: nextBuffers,
+      dirty: nextDirty,
+      openTabs: nextTabs,
+      activePath: nextActive,
+      cwd: nextCwd,
+      statusMessage: `Deleted ${node.name}`,
     });
   },
 

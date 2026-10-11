@@ -421,6 +421,133 @@ export async function createDirectoryInHandle(
   return parentHandle.getDirectoryHandle(name, { create: true });
 }
 
+type RemovableDirectoryHandle = FileSystemDirectoryHandle & {
+  removeEntry?: (
+    name: string,
+    options?: { recursive?: boolean }
+  ) => Promise<void>;
+};
+
+type MovableHandle = (FileSystemFileHandle | FileSystemDirectoryHandle) & {
+  move?: (name: string) => Promise<void>;
+};
+
+export async function removeEntryFromDirectory(
+  parentHandle: FileSystemDirectoryHandle,
+  name: string,
+  recursive = false
+): Promise<void> {
+  const handle = parentHandle as RemovableDirectoryHandle;
+  if (typeof handle.removeEntry !== "function") {
+    throw new Error("This browser cannot delete workspace entries");
+  }
+  await handle.removeEntry(name, { recursive });
+}
+
+export async function renameHandle(
+  handle: FileSystemFileHandle | FileSystemDirectoryHandle,
+  newName: string
+): Promise<void> {
+  const movable = handle as MovableHandle;
+  if (typeof movable.move !== "function") {
+    throw new Error("This browser cannot rename workspace entries");
+  }
+  await movable.move(newName);
+}
+
+export function parentDirPath(path: string): string {
+  const idx = path.lastIndexOf("/");
+  return idx > 0 ? path.slice(0, idx) : "";
+}
+
+export function remapPathPrefix(
+  path: string,
+  oldPrefix: string,
+  newPrefix: string
+): string {
+  if (path === oldPrefix) return newPrefix;
+  if (path.startsWith(`${oldPrefix}/`)) {
+    return `${newPrefix}${path.slice(oldPrefix.length)}`;
+  }
+  return path;
+}
+
+export function collectNodePaths(node: FileNode): string[] {
+  if (node.kind === "file") return [node.path];
+  const out = [node.path];
+  for (const child of node.children || []) {
+    out.push(...collectNodePaths(child));
+  }
+  return out;
+}
+
+function remapNodePaths(node: FileNode, oldPrefix: string, newPrefix: string): FileNode {
+  const path = remapPathPrefix(node.path, oldPrefix, newPrefix);
+  if (node.kind === "file") {
+    return { ...node, path, name: path.split("/").pop() || node.name };
+  }
+  return {
+    ...node,
+    path,
+    name: path.split("/").pop() || node.name,
+    children: (node.children || []).map((c) =>
+      remapNodePaths(c, oldPrefix, newPrefix)
+    ),
+  };
+}
+
+/** Remove a child node (file or directory) from the tree by path. */
+export function removeChildNode(root: FileNode, targetPath: string): FileNode {
+  if (root.path === targetPath) {
+    throw new Error("Cannot remove the workspace root");
+  }
+  const parentPath = parentDirPath(targetPath);
+  const strip = (node: FileNode): FileNode => {
+    if (node.kind !== "directory") return node;
+    if (node.path === parentPath) {
+      return {
+        ...node,
+        children: (node.children || []).filter((c) => c.path !== targetPath),
+      };
+    }
+    return {
+      ...node,
+      children: (node.children || []).map(strip),
+    };
+  };
+  return strip(root);
+}
+
+/** Rename a node in the tree and rewrite descendant paths. */
+export function renameNodeInTree(
+  root: FileNode,
+  oldPath: string,
+  newName: string
+): FileNode {
+  if (root.path === oldPath) {
+    throw new Error("Cannot rename the workspace root");
+  }
+  const safeName = newName.trim().replace(/[/\\]/g, "");
+  if (!safeName) throw new Error("Name required");
+  const parentPath = parentDirPath(oldPath);
+  const newPath = `${parentPath}/${safeName}`;
+
+  const renameAt = (node: FileNode): FileNode => {
+    if (node.kind !== "directory") return node;
+    if (node.path !== parentPath) {
+      return { ...node, children: (node.children || []).map(renameAt) };
+    }
+    const children = (node.children || []).map((child) => {
+      if (child.path !== oldPath) return child;
+      return remapNodePaths(child, oldPath, newPath);
+    });
+    sortChildren(children);
+    return { ...node, children };
+  };
+
+  return renameAt(root);
+}
+
 /** Collect all directory paths under root (including root). */
 export function listDirectoryPaths(root: FileNode | null): string[] {
   if (!root) return [];
