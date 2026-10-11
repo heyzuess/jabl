@@ -15,13 +15,15 @@ import { cn } from "@/lib/utils";
 import { useLayoutStore } from "@/lib/workspace/layout-store";
 import {
   resolveDocEntry,
+  resolveDocExternalUrl,
+  searchDocumentation,
   useDocumentationStore,
 } from "@/lib/abl/documentation-store";
+import { getBuiltinMembers } from "@/lib/abl/builtin/builtin-types";
 import {
   ABL_REFERENCE_INDEX_PAGE,
   ablReferenceUrl,
   categoryLabel,
-  searchAblDocs,
   type AblDocEntry,
 } from "@/lib/abl/reference";
 
@@ -31,13 +33,19 @@ export function DocumentationPane() {
   const filter = useDocumentationStore((s) => s.filter);
   const setFilter = useDocumentationStore((s) => s.setFilter);
   const openLanguageDoc = useDocumentationStore((s) => s.openLanguageDoc);
+  const openBuiltinDoc = useDocumentationStore((s) => s.openBuiltinDoc);
   const goBack = useDocumentationStore((s) => s.goBack);
   const goForward = useDocumentationStore((s) => s.goForward);
   const historyIndex = useDocumentationStore((s) => s.historyIndex);
   const history = useDocumentationStore((s) => s.history);
 
   const entry = useMemo(() => resolveDocEntry(topic), [topic]);
-  const results = useMemo(() => searchAblDocs(filter).slice(0, 200), [filter]);
+  const externalUrl = useMemo(() => resolveDocExternalUrl(topic), [topic]);
+  const results = useMemo(() => searchDocumentation(filter), [filter]);
+  const builtinMembers = useMemo(() => {
+    if (topic?.type !== "builtin") return [];
+    return getBuiltinMembers(topic.name);
+  }, [topic]);
 
   const canBack = historyIndex > 0;
   const canForward = historyIndex >= 0 && historyIndex < history.length - 1;
@@ -78,21 +86,45 @@ export function DocumentationPane() {
               <Input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder="Search ABL reference…"
+                placeholder="Search keywords & types…"
                 className="h-8 text-xs"
               />
             </div>
             <ScrollArea className="min-h-0 flex-1">
               <ul className="p-1">
                 {results.map((item) => {
+                  if (item.kind === "language") {
+                    const selected =
+                      topic?.type === "language" &&
+                      topic.name.toUpperCase() === item.entry.name.toUpperCase();
+                    return (
+                      <li key={`lang:${item.entry.name}`}>
+                        <button
+                          type="button"
+                          onClick={() => openLanguageDoc(item.entry.name)}
+                          className={cn(
+                            "flex w-full flex-col rounded-sm px-2 py-1.5 text-left text-xs",
+                            selected
+                              ? "bg-[var(--ide-accent)]/20 text-foreground"
+                              : "text-foreground/90 hover:bg-accent/60"
+                          )}
+                        >
+                          <span className="font-medium">{item.entry.name}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {categoryLabel(item.entry.category)}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  }
                   const selected =
-                    topic?.type === "language" &&
-                    topic.name.toUpperCase() === item.name.toUpperCase();
+                    topic?.type === "builtin" &&
+                    topic.name.toLowerCase() === item.name.toLowerCase();
                   return (
-                    <li key={item.name}>
+                    <li key={`type:${item.name}`}>
                       <button
                         type="button"
-                        onClick={() => openLanguageDoc(item.name)}
+                        onClick={() => openBuiltinDoc(item.name)}
                         className={cn(
                           "flex w-full flex-col rounded-sm px-2 py-1.5 text-left text-xs",
                           selected
@@ -100,9 +132,9 @@ export function DocumentationPane() {
                             : "text-foreground/90 hover:bg-accent/60"
                         )}
                       >
-                        <span className="font-medium">{item.name}</span>
+                        <span className="font-medium break-all">{item.name}</span>
                         <span className="text-[10px] text-muted-foreground">
-                          {categoryLabel(item.category)}
+                          Built-in {item.typeKind}
                         </span>
                       </button>
                     </li>
@@ -119,7 +151,13 @@ export function DocumentationPane() {
 
           <div className="min-w-0 flex-1 overflow-auto p-3">
             {entry ? (
-              <DocArticle entry={entry} localSymbol={topic?.type === "symbol"} />
+              <DocArticle
+                entry={entry}
+                localSymbol={topic?.type === "symbol"}
+                builtin={topic?.type === "builtin"}
+                externalUrl={externalUrl}
+                members={builtinMembers}
+              />
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-muted-foreground">
                 <BookOpen className="size-8 opacity-50" />
@@ -127,10 +165,9 @@ export function DocumentationPane() {
                   ABL Documentation
                 </p>
                 <p className="max-w-sm text-xs">
-                  Select a keyword from the list, or use{" "}
+                  Search keywords or Progress/OpenEdge types, or use{" "}
                   <span className="text-foreground">Open in Documentation</span>{" "}
-                  from an editor hover tip. Syntax follows the Progress ABL
-                  Reference.
+                  from an editor hover tip.
                 </p>
               </div>
             )}
@@ -144,26 +181,44 @@ export function DocumentationPane() {
 function DocArticle({
   entry,
   localSymbol,
+  builtin,
+  externalUrl,
+  members,
 }: {
   entry: AblDocEntry;
   localSymbol?: boolean;
+  builtin?: boolean;
+  externalUrl?: string | null;
+  members?: { name: string; kind: string; signature: string; detail: string }[];
 }) {
-  const url = !localSymbol
-    ? ablReferenceUrl(entry.docsPage ?? ABL_REFERENCE_INDEX_PAGE)
-    : null;
-  const linkLabel = entry.docsPage
-    ? "Progress ABL Reference"
-    : "Browse ABL Syntax Reference";
+  const url =
+    externalUrl ||
+    (!localSymbol && !builtin
+      ? ablReferenceUrl(entry.docsPage ?? ABL_REFERENCE_INDEX_PAGE)
+      : null);
+  const linkLabel = builtin
+    ? "OpenEdge / Progress Reference"
+    : entry.docsPage
+      ? "Progress ABL Reference"
+      : localSymbol
+        ? null
+        : "Browse ABL Syntax Reference";
 
   return (
     <article className="mx-auto max-w-2xl space-y-4 text-sm">
       <header className="space-y-1 border-b border-border pb-3">
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {localSymbol ? "Project symbol" : categoryLabel(entry.category)}
+          {builtin
+            ? "Built-in type"
+            : localSymbol
+              ? "Project symbol"
+              : categoryLabel(entry.category)}
         </div>
-        <h2 className="text-lg font-semibold text-foreground">{entry.name}</h2>
+        <h2 className="text-lg font-semibold text-foreground break-all">
+          {entry.name}
+        </h2>
         <p className="text-xs text-muted-foreground">{entry.summary}</p>
-        {url && (
+        {url && linkLabel && (
           <a
             href={url}
             target="_blank"
@@ -193,6 +248,39 @@ function DocArticle({
           <pre className="overflow-x-auto rounded-md border border-border bg-[var(--ide-editor-bg)] p-3 font-mono text-xs text-[var(--ide-editor-fg)] whitespace-pre-wrap">
             {entry.example}
           </pre>
+        </section>
+      )}
+
+      {members && members.length > 0 && (
+        <section className="space-y-1.5">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Public members ({members.length})
+          </h3>
+          <ul className="space-y-1.5 rounded-md border border-border bg-[var(--ide-editor-bg)] p-2">
+            {members.map((m) => (
+              <li
+                key={`${m.kind}:${m.name}:${m.signature}`}
+                className="border-b border-border/60 px-1 py-1.5 last:border-0"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-mono text-xs text-foreground">
+                    {m.name}
+                  </span>
+                  <span className="text-[10px] uppercase text-muted-foreground">
+                    {m.kind}
+                  </span>
+                </div>
+                <div className="mt-0.5 font-mono text-[10px] text-muted-foreground whitespace-pre-wrap">
+                  {m.signature}
+                </div>
+                {m.detail && (
+                  <div className="mt-0.5 text-[10px] text-muted-foreground/90">
+                    {m.detail}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
     </article>

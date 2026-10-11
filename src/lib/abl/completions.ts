@@ -68,13 +68,16 @@ function symbolToCompletion(
   symbol: AblSymbol,
   range: IRange
 ): languages.CompletionItem {
+  const docs = [symbol.detail, symbol.signature]
+    .filter(Boolean)
+    .join("\n\n");
   return {
     label: symbol.name,
     kind: kindCompletionKind(symbol.kind),
     insertText: symbol.insertText ?? symbol.name,
     range,
     detail: symbol.detail,
-    documentation: symbol.signature,
+    documentation: docs || symbol.signature,
   };
 }
 

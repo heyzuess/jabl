@@ -1,0 +1,3015 @@
+{
+  "source": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.package.html",
+  "types": [
+    {
+      "name": "OpenEdge.Logging.AnonymizedTokenFormatBuilder",
+      "kind": "class",
+      "summary": "Builds a AnonymizedTokenFormat logging filter",
+      "signature": "CLASS OpenEdge.Logging.AnonymizedTokenFormatBuilder",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.AnonymizedTokenFormatBuilder.html",
+      "inherits": "OpenEdge.Logging.Filter.LogFilterBuilder",
+      "members": [
+        {
+          "name": "NewFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.ILoggerFilter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.ILoggerFilter NewFilter ()",
+          "summary": "/* Creates the instance."
+        },
+        {
+          "name": "AnonymizedTokenFormatBuilder",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC AnonymizedTokenFormatBuilder (character)",
+          "summary": "/* Constructor @param character The filter name */"
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.ConfigFileLoggerBuilder",
+      "kind": "class",
+      "summary": "Loads JSON-based logger configuration from a known file",
+      "signature": "CLASS OpenEdge.Logging.ConfigFileLoggerBuilder",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.ConfigFileLoggerBuilder.html",
+      "inherits": "OpenEdge.Logging.JsonConfigLoggerBuilder",
+      "members": [
+        {
+          "name": "ClearConfig",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ClearConfig ()",
+          "summary": "/* Clears the config - resets last-read and other timestamps."
+        },
+        {
+          "name": "GetLoggerInstance",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.ILogWriter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.ILogWriter GetLoggerInstance ()",
+          "summary": "/* Constructs the actual logger instance @return ILogWriter A new or cached logged */"
+        },
+        {
+          "name": "LoadFromFile",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID LoadFromFile (character)",
+          "summary": "/* Loads logging config from a file @param character The filename to load."
+        },
+        {
+          "name": "ConfigFileLoggerBuilder",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC ConfigFileLoggerBuilder ()",
+          "summary": "/* Static constructor */"
+        },
+        {
+          "name": "ConfigFileLoggerBuilder",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC ConfigFileLoggerBuilder (character)",
+          "summary": "/* Constructor @param character The logger type being built */"
+        },
+        {
+          "name": "ConfigFileChanged",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → LOGICAL",
+          "signature": "DEFINE PUBLIC PROPERTY ConfigFileChanged AS LOGICAL",
+          "summary": "Property ConfigFileChanged."
+        },
+        {
+          "name": "FileCheckInterval",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → INTEGER",
+          "signature": "DEFINE PUBLIC PROPERTY FileCheckInterval AS INTEGER",
+          "summary": "Property FileCheckInterval."
+        },
+        {
+          "name": "TimeSinceCheck",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → INT64",
+          "signature": "DEFINE PUBLIC PROPERTY TimeSinceCheck AS INT64",
+          "summary": "Property TimeSinceCheck."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Filter.ConfigPropertyFilterBuilder",
+      "kind": "class",
+      "summary": "Auto-sets filter properties from configbuilder values",
+      "signature": "CLASS OpenEdge.Logging.Filter.ConfigPropertyFilterBuilder",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Filter.ConfigPropertyFilterBuilder.html",
+      "inherits": "OpenEdge.Logging.Filter.LogFilterBuilder",
+      "members": [
+        {
+          "name": "NewFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.ILoggerFilter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.ILoggerFilter NewFilter ()",
+          "summary": "/* Creates the instance."
+        },
+        {
+          "name": "SetPropValuesFromConfig",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID SetPropValuesFromConfig (ILoggerFilter)",
+          "summary": "/* Sets any publicly writable property values from saved configuration."
+        },
+        {
+          "name": "ConfigPropertyFilterBuilder",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC ConfigPropertyFilterBuilder (character)",
+          "summary": "/* Constructor @param character The type of filter being build."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Filter.ILoggerFilter",
+      "kind": "class",
+      "summary": "Filter functionality definition for a message",
+      "signature": "CLASS OpenEdge.Logging.Filter.ILoggerFilter",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Filter.ILoggerFilter.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogEvent The log event to filter."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Filter.LogFilterBuilder",
+      "kind": "class",
+      "summary": "Builder for Filter filters (writers, formatters)",
+      "signature": "CLASS OpenEdge.Logging.Filter.LogFilterBuilder",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Filter.LogFilterBuilder.html",
+      "inherits": "OpenEdge.Core.Util.ConfigBuilder",
+      "members": [
+        {
+          "name": "Append",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder Append (logical)",
+          "summary": "/** Indicates whether to append to the log @param character The filename to write to @return LogFilterBuilder This builder object."
+        },
+        {
+          "name": "Build",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder Build (character)",
+          "summary": "/** Returns log writer build for a logging type @param character The Filter type for which to build the logger @return LogFilterBuilder The entity writer builder to use */"
+        },
+        {
+          "name": "Build",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder Build (character, BuilderRegistry)",
+          "summary": "/** Returns log writer build for a logging type."
+        },
+        {
+          "name": "Build",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder Build (Class)",
+          "summary": "/** Returns log writer build for a logging type @param P.L.Class The Filter type for which to build the logger @return LogFilterBuilder The entity writer builder to use */"
+        },
+        {
+          "name": "FormatAs",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder FormatAs (character)",
+          "summary": "/** Sets a format string for a filter @param character The filename to write to @return LogFilterBuilder This builder object."
+        },
+        {
+          "name": "FromRegistry",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder FromRegistry (BuilderRegistry)",
+          "summary": "/** Sets the logging level for the logger @param BuilderRegistry The registry containing the map of log writers @return LogFilterBuilder This builder object."
+        },
+        {
+          "name": "GetFilterType",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → Progress.Lang.Class",
+          "signature": "METHOD PUBLIC Progress.Lang.Class GetFilterType (character)",
+          "summary": "/** Returns a filter writer from a registry; either the optional one set via loggerFilterRegistry or the default LoggerFilterRegistry:Registry."
+        },
+        {
+          "name": "NewFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.ILoggerFilter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.ILoggerFilter NewFilter ()",
+          "summary": "/* Creates the instance."
+        },
+        {
+          "name": "Option",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder Option (character, character)",
+          "summary": "/** Adds or overwrites an option for the logger filter."
+        },
+        {
+          "name": "Option",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder Option (character, decimal)",
+          "summary": "/** Adds or overwrites an option for the logger filter."
+        },
+        {
+          "name": "Option",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder Option (character, int64)",
+          "summary": "/** Adds or overwrites an option for the logger filter."
+        },
+        {
+          "name": "Option",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder Option (character, logical)",
+          "summary": "/** Adds or overwrites an option for the logger filter."
+        },
+        {
+          "name": "Option",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder Option (character, Object)",
+          "summary": "/** Adds or overwrites an option for the logger filter."
+        },
+        {
+          "name": "Options",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder Options (JsonObject)",
+          "summary": "/** Adds or overwrites an option for the logger filter."
+        },
+        {
+          "name": "WriteTo",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder WriteTo (character)",
+          "summary": "/** Sets the output destination @param character The filename to write to @return LogFilterBuilder This builder object."
+        },
+        {
+          "name": "WriteTo",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder WriteTo (FileOutputStream)",
+          "summary": "/** Sets the output destination @param FileOutputStream The filename to write to @return LogFilterBuilder This builder object."
+        },
+        {
+          "name": "WriteTo",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder WriteTo (JsonArray)",
+          "summary": "/** Sets the output destination @param JsonArray The object to write into to @return LogFilterBuilder This builder object."
+        },
+        {
+          "name": "WriteTo",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.LogFilterBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.LogFilterBuilder WriteTo (OutputStream)",
+          "summary": "/** Sets the output destination @param OutputStream The filename to write to @return LogFilterBuilder This builder object."
+        },
+        {
+          "name": "LogFilterBuilder",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogFilterBuilder (character)",
+          "summary": "/* Constructor */"
+        },
+        {
+          "name": "Filter",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.Filter.ILoggerFilter",
+          "signature": "DEFINE PUBLIC PROPERTY Filter AS OpenEdge.Logging.Filter.ILoggerFilter",
+          "summary": "Property Filter."
+        },
+        {
+          "name": "FilterType",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY FilterType AS CHARACTER",
+          "summary": "Property FilterType."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Filter.LoggerFilterList",
+      "kind": "class",
+      "summary": "A list of filter nodes to process",
+      "signature": "CLASS OpenEdge.Logging.Filter.LoggerFilterList",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Filter.LoggerFilterList.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogMessage The message to log."
+        },
+        {
+          "name": "InsertAfter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID InsertAfter (LoggerFilterNode, LoggerFilterNode)",
+          "summary": "/** Adds a Node after another specified Node."
+        },
+        {
+          "name": "InsertFirst",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID InsertFirst (LoggerFilterNode)",
+          "summary": "/** Adds a Node in the first position."
+        },
+        {
+          "name": "InsertLast",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID InsertLast (LoggerFilterNode)",
+          "summary": "/** Adds a Node at the end of the list."
+        },
+        {
+          "name": "RemoveAfter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID RemoveAfter (LoggerFilterNode)",
+          "summary": "/** Removes a Node after another specified Node."
+        },
+        {
+          "name": "RemoveFirst",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID RemoveFirst ()",
+          "summary": "/** Removes the first node, and replaces it with the next in the list."
+        },
+        {
+          "name": "LoggerFilterList",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LoggerFilterList ()",
+          "summary": "/* Default constructor */"
+        },
+        {
+          "name": "LoggerFilterList",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LoggerFilterList (LoggerFilterNode)",
+          "summary": "/** Constructor @param {&NodeType} The first node this list is managing */"
+        },
+        {
+          "name": "First",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.Filter.LoggerFilterNode",
+          "signature": "DEFINE PUBLIC PROPERTY First AS OpenEdge.Logging.Filter.LoggerFilterNode",
+          "summary": "Property First."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Filter.LoggerFilterNode",
+      "kind": "class",
+      "summary": "A node on the logging message filter chain",
+      "signature": "CLASS OpenEdge.Logging.Filter.LoggerFilterNode",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Filter.LoggerFilterNode.html",
+      "members": [
+        {
+          "name": "LoggerFilterNode",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LoggerFilterNode (ILoggerFilter)",
+          "summary": "Constructor."
+        },
+        {
+          "name": "Data",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.Filter.ILoggerFilter",
+          "signature": "DEFINE PUBLIC PROPERTY Data AS OpenEdge.Logging.Filter.ILoggerFilter",
+          "summary": "Property Data."
+        },
+        {
+          "name": "Next",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.Filter.LoggerFilterNode",
+          "signature": "DEFINE PUBLIC PROPERTY Next AS OpenEdge.Logging.Filter.LoggerFilterNode",
+          "summary": "Property Next."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.ABLSubstituteFormat",
+      "kind": "class",
+      "summary": "class OpenEdge.Logging.Format.ABLSubstituteFormat.",
+      "signature": "CLASS OpenEdge.Logging.Format.ABLSubstituteFormat",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.ABLSubstituteFormat.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogMessage The message to log."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.AnonymizedTokenFormat",
+      "kind": "class",
+      "summary": "Anonymises (hashes) specific token values",
+      "signature": "CLASS OpenEdge.Logging.Format.AnonymizedTokenFormat",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.AnonymizedTokenFormat.html",
+      "inherits": "OpenEdge.Logging.Format.LogMessageTokenResolver",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogEvent The current log event to filter */"
+        },
+        {
+          "name": "AnonymizedTokenFormat",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC AnonymizedTokenFormat ()",
+          "summary": "/* Default constructor */"
+        },
+        {
+          "name": "AnonymizedTokenFormat",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC AnonymizedTokenFormat (HashAlgorithmEnum)",
+          "summary": "/* Constructor @param HashAlgorithmEnum The algorithm to use to has token data */"
+        },
+        {
+          "name": "AnonymizedTokenFormat",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC AnonymizedTokenFormat (HashAlgorithmEnum, character)",
+          "summary": "/* Constructor @param HashAlgorithmEnum The algorithm to use to has token data @param character A CSV list of token to anonymise */"
+        },
+        {
+          "name": "AnonymizeTokens",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY AnonymizeTokens AS CHARACTER",
+          "summary": "Property AnonymizeTokens."
+        },
+        {
+          "name": "HashAlgorithm",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Core.HashAlgorithmEnum",
+          "signature": "DEFINE PUBLIC PROPERTY HashAlgorithm AS OpenEdge.Core.HashAlgorithmEnum",
+          "summary": "Property HashAlgorithm."
+        },
+        {
+          "name": "Salt",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Salt AS CHARACTER",
+          "summary": "Property Salt."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.ErrorFormat",
+      "kind": "class",
+      "summary": "Formats any errors",
+      "signature": "CLASS OpenEdge.Logging.Format.ErrorFormat",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.ErrorFormat.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogMessage The message to log."
+        },
+        {
+          "name": "WriteCallStack",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID WriteCallStack (character, LogEvent)",
+          "summary": "/* Writes a callstack to the message @param character The error or stop callstack @param LogEvent The current log event */"
+        },
+        {
+          "name": "ErrorFormat",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC ErrorFormat ()",
+          "summary": "/* Default constructor."
+        },
+        {
+          "name": "WriteCallStack",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → LOGICAL",
+          "signature": "DEFINE PUBLIC PROPERTY WriteCallStack AS LOGICAL",
+          "summary": "Property WriteCallStack."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.FullTextFormat",
+      "kind": "class",
+      "summary": "Write a log message in a standard format",
+      "signature": "CLASS OpenEdge.Logging.Format.FullTextFormat",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.FullTextFormat.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogMessage The message to log."
+        },
+        {
+          "name": "Format",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Format AS CHARACTER",
+          "summary": "Property Format."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.ISupportFormatting",
+      "kind": "class",
+      "summary": "Indicates that an implementer supports format strings",
+      "signature": "CLASS OpenEdge.Logging.Format.ISupportFormatting",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.ISupportFormatting.html",
+      "members": [
+        {
+          "name": "Format",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Format AS CHARACTER",
+          "summary": "Property Format."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.LogManagerFormat",
+      "kind": "class",
+      "summary": "Provides a standard format for writing log-manager messages via write-message()",
+      "signature": "CLASS OpenEdge.Logging.Format.LogManagerFormat",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.LogManagerFormat.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogMessage The message to log."
+        },
+        {
+          "name": "Format",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Format AS CHARACTER",
+          "summary": "Property Format."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.LogMessageTokenResolver",
+      "kind": "class",
+      "summary": "Abstract class that knows how to resolve tokens for the LogMessage/",
+      "signature": "CLASS OpenEdge.Logging.Format.LogMessageTokenResolver",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.LogMessageTokenResolver.html",
+      "members": [
+        {
+          "name": "ResolveMessageTokens",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ResolveMessageTokens (ISet , LogEvent)",
+          "summary": "/* Resolves a set of tokens, using values from a particular LogEvent @param ISet<Token> A set of tokens."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.MDCTokenFormat",
+      "kind": "class",
+      "summary": "A formatter for MDC-based tokens.",
+      "signature": "CLASS OpenEdge.Logging.Format.MDCTokenFormat",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.MDCTokenFormat.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogEvent The current log event to filter */"
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.ResolvedTokenFormat",
+      "kind": "class",
+      "summary": "Formatter to allow a default message format to be built via this filter",
+      "signature": "CLASS OpenEdge.Logging.Format.ResolvedTokenFormat",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.ResolvedTokenFormat.html",
+      "members": [
+        {
+          "name": "Destroy",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Destroy ()",
+          "summary": "Method Destroy."
+        },
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogMessage The message to log."
+        },
+        {
+          "name": "Initialize",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Initialize ()",
+          "summary": "Method Initialize."
+        },
+        {
+          "name": "ResolvedTokenFormat",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC ResolvedTokenFormat ()",
+          "summary": "/* Default constructor */"
+        },
+        {
+          "name": "Format",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Format AS CHARACTER",
+          "summary": "Property Format."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.StackWriterFormat",
+      "kind": "class",
+      "summary": "class OpenEdge.Logging.Format.StackWriterFormat.",
+      "signature": "CLASS OpenEdge.Logging.Format.StackWriterFormat",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.StackWriterFormat.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogMessage The message to log."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Format.TokenContextFormat",
+      "kind": "class",
+      "summary": "(Re)Builds a message from a set of tokenised values",
+      "signature": "CLASS OpenEdge.Logging.Format.TokenContextFormat",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Format.TokenContextFormat.html",
+      "inherits": "OpenEdge.Logging.Format.LogMessageTokenResolver",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogEvent The current log event to filter */"
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.ILogWriter",
+      "kind": "class",
+      "summary": "Interface for loggers (log writers)",
+      "signature": "CLASS OpenEdge.Logging.ILogWriter",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.ILogWriter.html",
+      "members": [
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "LogLevel",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.LogLevelEnum",
+          "signature": "DEFINE PUBLIC PROPERTY LogLevel AS OpenEdge.Logging.LogLevelEnum",
+          "summary": "Property LogLevel."
+        },
+        {
+          "name": "Name",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Name AS CHARACTER",
+          "summary": "Property Name."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.ISupportLogging",
+      "kind": "class",
+      "summary": "class OpenEdge.Logging.ISupportLogging.",
+      "signature": "CLASS OpenEdge.Logging.ISupportLogging",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.ISupportLogging.html",
+      "members": [
+        {
+          "name": "Logger",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.ILogWriter",
+          "signature": "DEFINE PUBLIC PROPERTY Logger AS OpenEdge.Logging.ILogWriter",
+          "summary": "Property Logger."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.JsonConfigLoggerBuilder",
+      "kind": "class",
+      "summary": "Builds a filter logger from stored JSON configuration",
+      "signature": "CLASS OpenEdge.Logging.JsonConfigLoggerBuilder",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.JsonConfigLoggerBuilder.html",
+      "inherits": "OpenEdge.Logging.LoggerBuilder",
+      "members": [
+        {
+          "name": "ClearConfig",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ClearConfig ()",
+          "summary": "/* Clears all the current logger configurations */"
+        },
+        {
+          "name": "FindLevel",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.LogLevelEnum",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.LogLevelEnum FindLevel (character)",
+          "summary": "/* Finds the log level for a logger to use, based on the logger type Algorithm is 1) exact match 2) chop off the trailing .-delimited entry, repeating 3) find the logger defined as DEFAULT_LOGGER, folling steps 1 & 2 @pa"
+        },
+        {
+          "name": "FindLogger",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL FindLogger (character, buffer)",
+          "summary": "/* Find a temp-table record/config for a logger to use Algorithm is 1) exact match 2) chop off the trailing .-delimited entry, repeating 3) find the logger defined as DEFAULT_LOGGER, following steps 1 & 2 4) return a voi"
+        },
+        {
+          "name": "GetABLType",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → Progress.Lang.Class",
+          "signature": "METHOD PUBLIC Progress.Lang.Class GetABLType (JsonObject, character)",
+          "summary": "/* Returns a type name from a property we expect to have a type."
+        },
+        {
+          "name": "GetLoggerInstance",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.ILogWriter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.ILogWriter GetLoggerInstance ()",
+          "summary": "/* Constructs the actual logger instance @return ILogWriter A new or cached logged */"
+        },
+        {
+          "name": "LoadConfig",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID LoadConfig (JsonObject)",
+          "summary": "/* Loads logging configuration from JSON."
+        },
+        {
+          "name": "ValidateFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ValidateFilter (character, character)",
+          "summary": "/* Ensures that a Filter type is the one we were expecting."
+        },
+        {
+          "name": "JsonConfigLoggerBuilder",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC JsonConfigLoggerBuilder (character)",
+          "summary": "/* Constructor @param character The logger type being built */"
+        },
+        {
+          "name": "FilterBuilders",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Core.Util.BuilderRegistry",
+          "signature": "DEFINE PUBLIC PROPERTY FilterBuilders AS OpenEdge.Core.Util.BuilderRegistry",
+          "summary": "Property FilterBuilders."
+        },
+        {
+          "name": "Filters",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Core.Util.BuilderRegistry",
+          "signature": "DEFINE PUBLIC PROPERTY Filters AS OpenEdge.Core.Util.BuilderRegistry",
+          "summary": "Property Filters."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.LogEvent",
+      "kind": "class",
+      "summary": "class OpenEdge.Logging.LogEvent.",
+      "signature": "CLASS OpenEdge.Logging.LogEvent",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.LogEvent.html",
+      "members": [
+        {
+          "name": "BuildStack",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID BuildStack ()",
+          "summary": "/* Builds the calls stack of the log event */"
+        },
+        {
+          "name": "LogEvent",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogEvent (LogLevelEnum, LogMessage)",
+          "summary": "/* Constructor @param LogLevelEnum The level this log event was at @param LogMessage The message to log */"
+        },
+        {
+          "name": "LogEvent",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogEvent (LogLevelEnum, LogMessage, datetime-tz)",
+          "summary": "/* Constructor @param LogLevelEnum The level this log event was at @param LogMessage The message to log @param datetime-tz The timestamp of the log event */"
+        },
+        {
+          "name": "LogEvent",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogEvent (LogLevelEnum, LogMessage, Error)",
+          "summary": "/* Constructor @param LogLevelEnum The level this log event was at @param LogMessage The message to log @param P.L.Error The error being logged */"
+        },
+        {
+          "name": "LogEvent",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogEvent (LogLevelEnum, LogMessage, Error, datetime-tz)",
+          "summary": "/* Constructor @param LogLevelEnum The level this log event was at @param LogMessage The message to log @param P.L.Error The error being logged @param datetime-tz The timestamp of the log event */"
+        },
+        {
+          "name": "CallStack",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY CallStack AS CHARACTER",
+          "summary": "Property CallStack."
+        },
+        {
+          "name": "Error",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → Progress.Lang.Error",
+          "signature": "DEFINE PUBLIC PROPERTY Error AS Progress.Lang.Error",
+          "summary": "Property Error."
+        },
+        {
+          "name": "LoggedBy",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → HANDLE",
+          "signature": "DEFINE PUBLIC PROPERTY LoggedBy AS HANDLE",
+          "summary": "Property LoggedBy."
+        },
+        {
+          "name": "Logger",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.ILogWriter",
+          "signature": "DEFINE PUBLIC PROPERTY Logger AS OpenEdge.Logging.ILogWriter",
+          "summary": "Property Logger."
+        },
+        {
+          "name": "LoggerName",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY LoggerName AS CHARACTER",
+          "summary": "Property LoggerName."
+        },
+        {
+          "name": "LoggerShortName",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY LoggerShortName AS CHARACTER",
+          "summary": "Property LoggerShortName."
+        },
+        {
+          "name": "LogLevel",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.LogLevelEnum",
+          "signature": "DEFINE PUBLIC PROPERTY LogLevel AS OpenEdge.Logging.LogLevelEnum",
+          "summary": "Property LogLevel."
+        },
+        {
+          "name": "Message",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.LogMessage",
+          "signature": "DEFINE PUBLIC PROPERTY Message AS OpenEdge.Logging.LogMessage",
+          "summary": "Property Message."
+        },
+        {
+          "name": "ShortNameFormat",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY ShortNameFormat AS CHARACTER",
+          "summary": "Property ShortNameFormat."
+        },
+        {
+          "name": "DATETIME",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property",
+          "signature": "DEFINE PUBLIC PROPERTY DATETIME ...",
+          "summary": "Property DATETIME."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.LogFilterBuilderRegistry",
+      "kind": "class",
+      "summary": "Registry for builders of filters",
+      "signature": "CLASS OpenEdge.Logging.LogFilterBuilderRegistry",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.LogFilterBuilderRegistry.html",
+      "members": [
+        {
+          "name": "InitializeRegistry",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID InitializeRegistry (BuilderRegistry)",
+          "summary": "/** Adds initial values into the registry @param BuilderRegistry The registry to populate */"
+        },
+        {
+          "name": "Registry",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Core.Util.BuilderRegistry",
+          "signature": "DEFINE PUBLIC PROPERTY Registry AS OpenEdge.Core.Util.BuilderRegistry",
+          "summary": "Property Registry."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Logger",
+      "kind": "class",
+      "summary": "Public logger implementation",
+      "signature": "CLASS OpenEdge.Logging.Logger",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Logger.html",
+      "members": [
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Equals",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL Equals (Object)",
+          "summary": "/* Compares two instances Loggers are equal iff - they have the same obejct reference ('handle'), or - they are both instances of OpenEdge.Logging.Logger and the Name property value is identical on both (= match) @param"
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "WriteError",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID WriteError (Error)",
+          "summary": "/* Writes any errors to the LoggerBuilder's log."
+        },
+        {
+          "name": "WriteMessage",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID WriteMessage (LogLevelEnum, LogMessage, Error)",
+          "summary": "/* Writes a log message @param LogLevelEnum The level at which the message was logged @param LogMessage the message to be written @param P.L.Error An error, if logged */"
+        },
+        {
+          "name": "Logger",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC Logger (character, LogLevelEnum, ILoggerFilter[])",
+          "summary": "/* Constructor @param character The name of this logger implementation @param LogLevelEnum The level we're logging at @param LoggerFilterList A list of filters to format and write the log data */"
+        },
+        {
+          "name": "Logger",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC Logger (character, LogLevelEnum, LoggerFilterList)",
+          "summary": "/* Constructor --- USE FOR BACKWARDS COMPATIBILITLY ONLY --- @param character The name of this logger implementation @param LogLevelEnum The level we're logging at @param LoggerFilterList A list of filters to format and"
+        },
+        {
+          "name": "Format",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Format AS CHARACTER",
+          "summary": "Property Format."
+        },
+        {
+          "name": "LogFilters",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.Filter.ILoggerFilter",
+          "signature": "DEFINE PUBLIC PROPERTY LogFilters AS OpenEdge.Logging.Filter.ILoggerFilter",
+          "summary": "Property LogFilters."
+        },
+        {
+          "name": "LogLevel",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.LogLevelEnum",
+          "signature": "DEFINE PUBLIC PROPERTY LogLevel AS OpenEdge.Logging.LogLevelEnum",
+          "summary": "Property LogLevel."
+        },
+        {
+          "name": "Name",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Name AS CHARACTER",
+          "summary": "Property Name."
+        },
+        {
+          "name": "ShortName",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY ShortName AS CHARACTER",
+          "summary": "Property ShortName."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.LoggerBuilder",
+      "kind": "class",
+      "summary": "A factory for creating loggers",
+      "signature": "CLASS OpenEdge.Logging.LoggerBuilder",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.LoggerBuilder.html",
+      "inherits": "OpenEdge.Core.Util.ConfigBuilder",
+      "members": [
+        {
+          "name": "AddFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.LoggerBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.LoggerBuilder AddFilter (character)",
+          "summary": "/* Adds a filter to the logger being built @param character The filter name to add @return LoggerBuilder This builder object */"
+        },
+        {
+          "name": "AddFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.LoggerBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.LoggerBuilder AddFilter (character, JsonObject)",
+          "summary": "/* Adds a filter to the logger being built, with options in Json form @param character The filter name to add @param JsonObject The filter options @return LoggerBuilder This builder object */"
+        },
+        {
+          "name": "AddFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.LoggerBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.LoggerBuilder AddFilter (ILoggerFilter)",
+          "summary": "/* Adds a filter to the logger being built @param ILoggerFilter The filter to add @return LoggerBuilder This builder object */"
+        },
+        {
+          "name": "Build",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.LoggerBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.LoggerBuilder Build (character)",
+          "summary": "/* Returns a builder for a logger @param character The logger type @return LoggerBuilder A builder for that logger */"
+        },
+        {
+          "name": "Build",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.LoggerBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.LoggerBuilder Build (character, BuilderRegistry)",
+          "summary": "/* Returns a builder for a logger @param character The logger type @param BuilderRegistry A registry of Filter writers to user @return LoggerBuilder A builder for that logger */"
+        },
+        {
+          "name": "BuildFilterLogger",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.ILogWriter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.ILogWriter BuildFilterLogger ()",
+          "summary": "/* Creates a default logger based that uses the config in this class @return ILogWriter A logger */"
+        },
+        {
+          "name": "CacheInstance",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID CacheInstance (character, ILogWriter)",
+          "summary": "/* Caches a logger instance for a logger name @param character The logger name @param ILogWriter The logger instance */"
+        },
+        {
+          "name": "ClearCache",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ClearCache ()",
+          "summary": "/* Clears/empties the cache of logger instances */"
+        },
+        {
+          "name": "ClearExternalBuild",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ClearExternalBuild (character)",
+          "summary": "/* This method removes the logger being built if the builder-methods are called externally (in user code)."
+        },
+        {
+          "name": "FindLoggerInstance",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL FindLoggerInstance (buffer, character)",
+          "summary": "/* Helper method to find the correct logger records @param buffer The Logger temp-table buffer @param character The logger name @return logical TRUE if a record for the logger can be found, FALSE otherwise */"
+        },
+        {
+          "name": "FromConfig",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.LoggerBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.LoggerBuilder FromConfig (JsonObject)",
+          "summary": "/* Adds JSON configuration for loggers, filters and builders @param JsonObject The JSON configuration for a logger @return LoggerBuilder This builder object */"
+        },
+        {
+          "name": "GetCachedInstance",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.ILogWriter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.ILogWriter GetCachedInstance (character)",
+          "summary": "/* Returns a cached logger instance."
+        },
+        {
+          "name": "GetLogger",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.ILogWriter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.ILogWriter GetLogger (character)",
+          "summary": "/** Returns a logger (ILogWriter) @param character The logger name @return ILogWriter An instance of the default logger */"
+        },
+        {
+          "name": "GetLogger",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.ILogWriter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.ILogWriter GetLogger (handle)",
+          "summary": "/** Returns a logger (ILogWriter)."
+        },
+        {
+          "name": "GetLogger",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.ILogWriter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.ILogWriter GetLogger (Class)",
+          "summary": "/** Returns a logger (ILogWriter)."
+        },
+        {
+          "name": "GetLoggerInstance",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.ILogWriter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.ILogWriter GetLoggerInstance ()",
+          "summary": "/* Constructs the actual logger instance @return ILogWriter A new or cached logged */"
+        },
+        {
+          "name": "IsCached",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL IsCached (character)",
+          "summary": "/* Indicates whether a cached instance of a logger exists."
+        },
+        {
+          "name": "LogAt",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.LoggerBuilder",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.LoggerBuilder LogAt (LogLevelEnum)",
+          "summary": "/* Sets the log level for this logger."
+        },
+        {
+          "name": "LogMessage",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID LogMessage (character, LogLevelEnum)",
+          "summary": "/* Logs error/messages that are written before a logger instance is successfully built."
+        },
+        {
+          "name": "RemoveFromCache",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL RemoveFromCache (character)",
+          "summary": "/* Removes an instance record for a logger."
+        },
+        {
+          "name": "RemoveGroupFromCache",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL RemoveGroupFromCache (character)",
+          "summary": "/* Removes a group of loggers from the cache."
+        },
+        {
+          "name": "LoggerBuilder",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LoggerBuilder ()",
+          "summary": "/* Static constructor */"
+        },
+        {
+          "name": "LoggerBuilder",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LoggerBuilder (character)",
+          "summary": "/* Constructor @param character The logger type being built */"
+        },
+        {
+          "name": "DefaultLogger",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY DefaultLogger AS CHARACTER",
+          "summary": "Property DefaultLogger."
+        },
+        {
+          "name": "Logger",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.ILogWriter",
+          "signature": "DEFINE PUBLIC PROPERTY Logger AS OpenEdge.Logging.ILogWriter",
+          "summary": "Property Logger."
+        },
+        {
+          "name": "LoggerType",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY LoggerType AS CHARACTER",
+          "summary": "Property LoggerType."
+        },
+        {
+          "name": "Registry",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Core.Util.BuilderRegistry",
+          "signature": "DEFINE PUBLIC PROPERTY Registry AS OpenEdge.Core.Util.BuilderRegistry",
+          "summary": "Property Registry."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.LoggerFilterRegistry",
+      "kind": "class",
+      "summary": "Registry for types that hold log filters (format and writer)",
+      "signature": "CLASS OpenEdge.Logging.LoggerFilterRegistry",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.LoggerFilterRegistry.html",
+      "members": [
+        {
+          "name": "InitializeRegistry",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID InitializeRegistry (BuilderRegistry)",
+          "summary": "/** Adds initial values into the registry @param BuilderRegistry The registry to populate */"
+        },
+        {
+          "name": "ABL_SUBSTITUTE_FORMAT",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY ABL_SUBSTITUTE_FORMAT AS CHARACTER",
+          "summary": "Property ABL_SUBSTITUTE_FORMAT."
+        },
+        {
+          "name": "ANON_FORMAT",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY ANON_FORMAT AS CHARACTER",
+          "summary": "Property ANON_FORMAT."
+        },
+        {
+          "name": "DEFAULT_WRITER",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY DEFAULT_WRITER AS CHARACTER",
+          "summary": "Property DEFAULT_WRITER."
+        },
+        {
+          "name": "ERROR_FORMAT",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY ERROR_FORMAT AS CHARACTER",
+          "summary": "Property ERROR_FORMAT."
+        },
+        {
+          "name": "FULL_TEXT_FORMAT",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY FULL_TEXT_FORMAT AS CHARACTER",
+          "summary": "Property FULL_TEXT_FORMAT."
+        },
+        {
+          "name": "JSON_LOG_WRITER",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY JSON_LOG_WRITER AS CHARACTER",
+          "summary": "Property JSON_LOG_WRITER."
+        },
+        {
+          "name": "LOG_MANAGER_FORMAT",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY LOG_MANAGER_FORMAT AS CHARACTER",
+          "summary": "Property LOG_MANAGER_FORMAT."
+        },
+        {
+          "name": "LOG_MANAGER_WRITER",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY LOG_MANAGER_WRITER AS CHARACTER",
+          "summary": "Property LOG_MANAGER_WRITER."
+        },
+        {
+          "name": "MDC_FORMAT",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY MDC_FORMAT AS CHARACTER",
+          "summary": "Property MDC_FORMAT."
+        },
+        {
+          "name": "MSG_STMT_WRITER",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY MSG_STMT_WRITER AS CHARACTER",
+          "summary": "Property MSG_STMT_WRITER."
+        },
+        {
+          "name": "NAMED_FILE_WRITER",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY NAMED_FILE_WRITER AS CHARACTER",
+          "summary": "Property NAMED_FILE_WRITER."
+        },
+        {
+          "name": "Registry",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Core.Util.BuilderRegistry",
+          "signature": "DEFINE PUBLIC PROPERTY Registry AS OpenEdge.Core.Util.BuilderRegistry",
+          "summary": "Property Registry."
+        },
+        {
+          "name": "REPLACE_TOKENS_FORMAT",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY REPLACE_TOKENS_FORMAT AS CHARACTER",
+          "summary": "Property REPLACE_TOKENS_FORMAT."
+        },
+        {
+          "name": "STACK_WRITER_FORMAT",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY STACK_WRITER_FORMAT AS CHARACTER",
+          "summary": "Property STACK_WRITER_FORMAT."
+        },
+        {
+          "name": "TOKEN_FORMAT",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY TOKEN_FORMAT AS CHARACTER",
+          "summary": "Property TOKEN_FORMAT."
+        },
+        {
+          "name": "VOID_WRITER",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY VOID_WRITER AS CHARACTER",
+          "summary": "Property VOID_WRITER."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.LogLevelEnum",
+      "kind": "enum",
+      "summary": "enum OpenEdge.Logging.LogLevelEnum.",
+      "signature": "ENUM OpenEdge.Logging.LogLevelEnum",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.LogLevelEnum.html",
+      "members": []
+    },
+    {
+      "name": "OpenEdge.Logging.LogMessage",
+      "kind": "class",
+      "summary": "A data container/value object for a message to be logged, including",
+      "signature": "CLASS OpenEdge.Logging.LogMessage",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.LogMessage.html",
+      "members": [
+        {
+          "name": "AddContext",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID AddContext (character, Object)",
+          "summary": "/* Adds context values to this message."
+        },
+        {
+          "name": "AddToken",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL AddToken (Token)",
+          "summary": "/* Adds a token to the message's set of tokens."
+        },
+        {
+          "name": "AddTokens",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL AddTokens (Token[])",
+          "summary": "/* Adds one or more tokens to the message's set of tokens."
+        },
+        {
+          "name": "GetContext",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → Progress.Lang.Object",
+          "signature": "METHOD PUBLIC Progress.Lang.Object GetContext (character)",
+          "summary": "/* Returns a context value for a given key."
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character)",
+          "summary": "/* Constructor @param character The message group @param character the message text */"
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character, character)",
+          "summary": "/* Constructor @param character The message group @param character The message base text @param character The first argument (context) */"
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character, character, character)",
+          "summary": "/* Constructor @param character The message group @param character The message base text @param character The first argument @param character The second argument */"
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character, character, character, character)",
+          "summary": "/* Constructor @param character The message group @param character The message base text @param character The first argument @param character The second argument @param character The third argument */"
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character, character, character, character, character)",
+          "summary": "/* Constructor @param character The message group @param character The message base text @param character The first argument @param character The second argument @param character The third argument @param character The f"
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character, character, character, character, character, character)",
+          "summary": "/* Constructor @param character The message group @param character The message base text @param character The first argument @param character The second argument @param character The third argument @param character The f"
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character, character, character, character, character, character, character)",
+          "summary": "/* Constructor @param character The message group @param character The message base text @param character The first argument @param character The second argument @param character The third argument @param character The f"
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character, character, character, character, character, character, character, character)",
+          "summary": "/* Constructor @param character The message group @param character The message base text @param character The first argument @param character The second argument @param character The third argument @param character The f"
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character, character, character, character, character, character, character, character, character)",
+          "summary": "/* Constructor @param character The message group @param character The message base text @param character The first argument @param character The second argument @param character The third argument @param character The f"
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character, character, character, character, character, character, character, character, character, character)",
+          "summary": "/* Constructor @param character The message group @param character The message base text @param character The first argument @param character The second argument @param character The third argument @param character The f"
+        },
+        {
+          "name": "LogMessage",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogMessage (character, character, character[])",
+          "summary": "/* Constructor @param character The message group @param character the message base @param character[] A set of character arguments (context) */"
+        },
+        {
+          "name": "BaseText",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY BaseText AS CHARACTER",
+          "summary": "Property BaseText."
+        },
+        {
+          "name": "GroupName",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY GroupName AS CHARACTER",
+          "summary": "Property GroupName."
+        },
+        {
+          "name": "Message",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Message AS CHARACTER",
+          "summary": "Property Message."
+        },
+        {
+          "name": "ISet",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property",
+          "signature": "DEFINE PUBLIC PROPERTY ISet ...",
+          "summary": "Property ISet."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.MDC",
+      "kind": "class",
+      "summary": "Mapped Diagnostic Context object: A set of key/value pairs consumed by logger filters",
+      "signature": "CLASS OpenEdge.Logging.MDC",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.MDC.html",
+      "members": [
+        {
+          "name": "Clear",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Clear ()",
+          "summary": "/* Clear all entries in the MDC */"
+        },
+        {
+          "name": "Get",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → CHARACTER",
+          "signature": "METHOD PUBLIC CHARACTER Get (character)",
+          "summary": "/* Get the context identified by the key parameter."
+        },
+        {
+          "name": "Has",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL Has (character)",
+          "summary": "/* Indicates whether a key exists in the store."
+        },
+        {
+          "name": "IsEmpty",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL IsEmpty ()",
+          "summary": "/* Indicates whether there is any contest in the store."
+        },
+        {
+          "name": "Put",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Put (character, character)",
+          "summary": "/* Adds a context value to the MDC context @param character A non-empty key name @param character A value associated with the key */"
+        },
+        {
+          "name": "Remove",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Remove (character)",
+          "summary": "/* Remove the context identified by the key parameter."
+        },
+        {
+          "name": "MDC",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC MDC ()",
+          "summary": "/* Static constructor */"
+        },
+        {
+          "name": "MDC",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC MDC ()",
+          "summary": "/* Default constructor."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.TokenResolver",
+      "kind": "class",
+      "summary": "Resolves certain known token names into useful values.",
+      "signature": "CLASS OpenEdge.Logging.TokenResolver",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.TokenResolver.html",
+      "members": [
+        {
+          "name": "Resolve",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → CHARACTER",
+          "signature": "METHOD PUBLIC CHARACTER Resolve (character)",
+          "summary": "/* Resolves any tokens in the file name into appropriate values @param character The source string @return character The resolved string */"
+        },
+        {
+          "name": "ResolveName",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → CHARACTER",
+          "signature": "METHOD PUBLIC CHARACTER ResolveName (character, character)",
+          "summary": "/* Resolves a NAME-based token arg, based on the type/logger name given @param character The token argument for ${NAME.*} tokens @param character The (type) name to resolve @return character The resolved string */"
+        },
+        {
+          "name": "ResolveTime",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → CHARACTER",
+          "signature": "METHOD PUBLIC CHARACTER ResolveTime (character, character[12], character[12], character[7], character[7], datetime-tz)",
+          "summary": "/* Resolves a time-based token arg, based on the timestamp given @param character The token argument for ${T.*} tokens @param character[12] The long-form month names (ie January) @param character[12] The short-form month"
+        },
+        {
+          "name": "ResolveTime",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → CHARACTER",
+          "signature": "METHOD PUBLIC CHARACTER ResolveTime (character, datetime-tz)",
+          "summary": "/* Resolves a time-based token arg, based on the timestamp given @param character The token argument for ${T.*} tokens @param datetime-tz The timestamp to use to resolve the token @return character The resolved string */"
+        },
+        {
+          "name": "ResolveUser",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → CHARACTER",
+          "signature": "METHOD PUBLIC CHARACTER ResolveUser (character, handle)",
+          "summary": "/* Resolves a CP-based token arg, based on the client-principal."
+        },
+        {
+          "name": "TokenResolvedHandler",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID TokenResolvedHandler (Object, TokenResolverEventArgs)",
+          "summary": "/* Callback to handle token replacement @param Object The sender @param OpenEdge.Core.Util.TokenResolverEventArgs The token resolution args */"
+        },
+        {
+          "name": "TokenResolved",
+          "kind": "event",
+          "access": "PUBLIC",
+          "detail": "Event",
+          "signature": "DEFINE PUBLIC EVENT TokenResolved ...",
+          "summary": "/* Event published after a token is resolved by this resolver."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.TokenResolverEventArgs",
+      "kind": "class",
+      "summary": "Arguments for events published when an individual token is resolved.",
+      "signature": "CLASS OpenEdge.Logging.TokenResolverEventArgs",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.TokenResolverEventArgs.html",
+      "inherits": "OpenEdge.Core.Util.TokenResolverEventArgs",
+      "members": [
+        {
+          "name": "TokenResolverEventArgs",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC TokenResolverEventArgs (character)",
+          "summary": "/* Constructor @param character The base token (mandatory) */"
+        },
+        {
+          "name": "TokenResolverEventArgs",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC TokenResolverEventArgs (character, character)",
+          "summary": "/* Constructor @param character The token group (mandatory) @param character The token arguments (if any) */"
+        },
+        {
+          "name": "TokenResolverEventArgs",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC TokenResolverEventArgs (character, character, character)",
+          "summary": "/* Constructor @param character The token group (mandatory) @param character The token arguments (if any) @param character The token value */"
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.VoidLogger",
+      "kind": "class",
+      "summary": "Empty/null logger.",
+      "signature": "CLASS OpenEdge.Logging.VoidLogger",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.VoidLogger.html",
+      "members": [
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Debug",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Debug (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Equals",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → LOGICAL",
+          "signature": "METHOD PUBLIC LOGICAL Equals (Object)",
+          "summary": "/* Compares two instances Loggers are equal iff - they have the same obejct reference ('handle'), or - they are both instances of OpenEdge.Logging.Logger and the Name property value is identical on both (= match) @param"
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Error",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Error (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Fatal",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Fatal (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Info",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Info (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Trace",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Trace (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character, character)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character, character, Error)",
+          "summary": "/* Log for a group and a simple message @param character The message group for this message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (character, Error)",
+          "summary": "/* Log for a simple message @param character The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (LogMessage)",
+          "summary": "/* Log for a simple message @param LogMessage The message to log."
+        },
+        {
+          "name": "Warn",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID Warn (LogMessage, Error)",
+          "summary": "/* Log for a message and error @param LogMessage The message to log."
+        },
+        {
+          "name": "VoidLogger",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC VoidLogger (character)",
+          "summary": "/* Constructor @param character The name of this logger implementation */"
+        },
+        {
+          "name": "LogLevel",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → OpenEdge.Logging.LogLevelEnum",
+          "signature": "DEFINE PUBLIC PROPERTY LogLevel AS OpenEdge.Logging.LogLevelEnum",
+          "summary": "Property LogLevel."
+        },
+        {
+          "name": "Name",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Name AS CHARACTER",
+          "summary": "Property Name."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Writer.FileLogWriterBuilder",
+      "kind": "class",
+      "summary": "Builds a (named) file logger",
+      "signature": "CLASS OpenEdge.Logging.Writer.FileLogWriterBuilder",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Writer.FileLogWriterBuilder.html",
+      "inherits": "OpenEdge.Logging.Filter.LogFilterBuilder",
+      "members": [
+        {
+          "name": "GetFilterType",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → Progress.Lang.Class",
+          "signature": "METHOD PUBLIC Progress.Lang.Class GetFilterType (character)",
+          "summary": "/** Returns a filter writer from a registry; either the optional one set via loggerFilterRegistry or the default LoggerFilterRegistry:Registry."
+        },
+        {
+          "name": "NewFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.ILoggerFilter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.ILoggerFilter NewFilter ()",
+          "summary": "/* Creates the instance."
+        },
+        {
+          "name": "FileLogWriterBuilder",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC FileLogWriterBuilder (character)",
+          "summary": "/* Constructor */"
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Writer.IFileWriter",
+      "kind": "class",
+      "summary": "Indicates whether we're writing to a file",
+      "signature": "CLASS OpenEdge.Logging.Writer.IFileWriter",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Writer.IFileWriter.html",
+      "members": [
+        {
+          "name": "Append",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → LOGICAL",
+          "signature": "DEFINE PUBLIC PROPERTY Append AS LOGICAL",
+          "summary": "Property Append."
+        },
+        {
+          "name": "FileName",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY FileName AS CHARACTER",
+          "summary": "Property FileName."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Writer.JsonLogWriter",
+      "kind": "class",
+      "summary": "Writes log messages to a JSON Array",
+      "signature": "CLASS OpenEdge.Logging.Writer.JsonLogWriter",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Writer.JsonLogWriter.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/* Performs implementation-specific filtering for a logger type @param LogEvent The event to capture."
+        },
+        {
+          "name": "JsonLogWriter",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC JsonLogWriter ()",
+          "summary": "/* Default constructor */"
+        },
+        {
+          "name": "LogData",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → Progress.Json.ObjectModel.JsonArray",
+          "signature": "DEFINE PUBLIC PROPERTY LogData AS Progress.Json.ObjectModel.JsonArray",
+          "summary": "Property LogData."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Writer.JsonLogWriterBuilder",
+      "kind": "class",
+      "summary": "Builds a JSON array log writer",
+      "signature": "CLASS OpenEdge.Logging.Writer.JsonLogWriterBuilder",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Writer.JsonLogWriterBuilder.html",
+      "inherits": "OpenEdge.Logging.Filter.LogFilterBuilder",
+      "members": [
+        {
+          "name": "NewFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → OpenEdge.Logging.Filter.ILoggerFilter",
+          "signature": "METHOD PUBLIC OpenEdge.Logging.Filter.ILoggerFilter NewFilter ()",
+          "summary": "/* Creates the filter instance @return ILoggerFilter A filter instance */"
+        },
+        {
+          "name": "JsonLogWriterBuilder",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC JsonLogWriterBuilder (character)",
+          "summary": "/* Constructor @param character The filter type being built */"
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Writer.LogManagerWriter",
+      "kind": "class",
+      "summary": "class OpenEdge.Logging.Writer.LogManagerWriter.",
+      "signature": "CLASS OpenEdge.Logging.Writer.LogManagerWriter",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Writer.LogManagerWriter.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogMessage The message to log."
+        },
+        {
+          "name": "LogManagerWriter",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogManagerWriter ()",
+          "summary": "/* Constructor."
+        },
+        {
+          "name": "LogManagerWriter",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC LogManagerWriter (character, logical)",
+          "summary": "/* Constructor @param character The name of the logfile to use @param logical TRUE if log entries should be appended to an existing log */"
+        },
+        {
+          "name": "Append",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → LOGICAL",
+          "signature": "DEFINE PUBLIC PROPERTY Append AS LOGICAL",
+          "summary": "Property Append."
+        },
+        {
+          "name": "FileName",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY FileName AS CHARACTER",
+          "summary": "Property FileName."
+        },
+        {
+          "name": "SubSys",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY SubSys AS CHARACTER",
+          "summary": "Property SubSys."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Writer.MessageStatementWriter",
+      "kind": "class",
+      "summary": "Writes the message as a MESSAGE statement.",
+      "signature": "CLASS OpenEdge.Logging.Writer.MessageStatementWriter",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Writer.MessageStatementWriter.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogMessage The message to log."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Writer.NamedFileWriter",
+      "kind": "class",
+      "summary": "class OpenEdge.Logging.Writer.NamedFileWriter.",
+      "signature": "CLASS OpenEdge.Logging.Writer.NamedFileWriter",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Writer.NamedFileWriter.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogEvent The event to log."
+        },
+        {
+          "name": "NamedFileWriter",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC NamedFileWriter ()",
+          "summary": "/* Default constructor */"
+        },
+        {
+          "name": "NamedFileWriter",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC NamedFileWriter (character, logical)",
+          "summary": "/* Constructor @param character The file name to write into @param logical TRUE if we are to append to this file */"
+        },
+        {
+          "name": "NamedFileWriter",
+          "kind": "constructor",
+          "access": "PUBLIC",
+          "detail": "Constructor",
+          "signature": "CONSTRUCTOR PUBLIC NamedFileWriter (FileOutputStream)",
+          "summary": "/* Constructor @param FileOutputStream A file for writing log entries into @param LoggerFilterList Formatting filters for this logger */"
+        },
+        {
+          "name": "Append",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → LOGICAL",
+          "signature": "DEFINE PUBLIC PROPERTY Append AS LOGICAL",
+          "summary": "Property Append."
+        },
+        {
+          "name": "FileName",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY FileName AS CHARACTER",
+          "summary": "Property FileName."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Logging.Writer.VoidWriter",
+      "kind": "class",
+      "summary": "No-op or VOID logger.",
+      "signature": "CLASS OpenEdge.Logging.Writer.VoidWriter",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Logging.Writer.VoidWriter.html",
+      "members": [
+        {
+          "name": "ExecuteFilter",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → VOID",
+          "signature": "METHOD PUBLIC VOID ExecuteFilter (LogEvent)",
+          "summary": "/** Performs implementation-specific filtering for a logger type @param LogMessage The message to log."
+        }
+      ]
+    }
+  ]
+}

@@ -15,3 +15,8 @@
 - Package path vs folder convention and class/filename mismatch warnings
 - Richer OE language documentation corpus / external help links
 - Real OpenEdge compile diagnostics for OOP (overlaps compiler / LSP bullets above)
+- Remaining OpenEdge.* libraries beyond Core/Logging/Net (BusinessLogic, DataAdmin, Messaging, Security, ServerAdmin, …)
+- Widget Reference (~22 widgets) documentation / completions
+- Handle Reference gaps (~51 handles) beyond existing system-handle keywords
+- Full Class Properties and Methods Reference attribute/method encyclopedia (~1,200+)
+- Class Events Reference catalog (built-in class events encyclopedia)

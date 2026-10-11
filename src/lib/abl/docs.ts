@@ -4,6 +4,11 @@
  */
 
 import {
+  getBuiltinDocsUrl,
+  getBuiltinType,
+  isBuiltinPath,
+} from "./builtin/builtin-types";
+import {
   ABL_REFERENCE_INDEX_PAGE,
   ablReferenceUrl,
   categoryLabel,
@@ -85,7 +90,15 @@ export function formatSymbolHover(opts: {
   excerpt: string;
   path?: string;
 }): string {
-  const where = opts.path ? `\n\n_Defined in_ \`${opts.path}\`` : "";
+  const builtin = isBuiltinPath(opts.path);
+  const docsUrl =
+    (opts.path && getBuiltinDocsUrl(opts.path)) ||
+    getBuiltinDocsUrl(opts.name);
+  const where = opts.path
+    ? builtin
+      ? `\n\n_Built-in type_`
+      : `\n\n_Defined in_ \`${opts.path}\``
+    : "";
   const code = opts.excerpt.trim() || opts.signature;
   const arg = encodeURIComponent(
     JSON.stringify([
@@ -99,6 +112,9 @@ export function formatSymbolHover(opts: {
       },
     ])
   );
+  const external = docsUrl
+    ? `\n\n[OpenEdge / Progress Reference](${docsUrl})`
+    : "";
   return (
     `**${opts.name}** — ${opts.kind}\n\n` +
     `${opts.detail}\n\n` +
@@ -107,18 +123,34 @@ export function formatSymbolHover(opts: {
     code +
     "\n```" +
     where +
+    external +
     `\n\n[Open in Documentation ▸](command:${OPEN_DOC_COMMAND}?${arg})`
   );
 }
 
 export function formatSymbolAsDocEntry(symbol: AblSymbol): AblDocEntry {
+  const fqn = symbol.path?.startsWith("builtin:")
+    ? symbol.path.slice("builtin:".length)
+    : symbol.name;
+  const catalog = getBuiltinType(fqn);
   return {
-    name: symbol.name,
+    name: catalog?.name ?? symbol.name,
     category: "definition",
-    summary: `${symbol.detail}${symbol.path ? ` — ${symbol.path}` : ""}`,
-    syntax: symbol.signature || symbol.excerpt,
-    example: symbol.excerpt !== symbol.signature ? symbol.excerpt : undefined,
+    summary:
+      catalog?.summary ??
+      `${symbol.detail}${symbol.path ? ` — ${symbol.path}` : ""}`,
+    syntax: catalog?.signature || symbol.signature || symbol.excerpt,
+    example: catalog?.example,
   };
+}
+
+/** Absolute docs URL for a symbol (builtin Progress/OpenEdge pages). */
+export function symbolDocsUrl(symbol: AblSymbol): string | null {
+  if (symbol.path) {
+    const u = getBuiltinDocsUrl(symbol.path);
+    if (u) return u;
+  }
+  return getBuiltinDocsUrl(symbol.name);
 }
 
 export function getKeywordDoc(name: string): string | null {

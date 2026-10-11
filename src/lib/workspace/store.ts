@@ -246,31 +246,67 @@ function uniqueLocalPath(name: string, openTabs: OpenTab[]): string {
   return candidate;
 }
 
-/** Sample files — includes New File template counterparts plus demo sources. */
-const SAMPLE_MANIFEST = [
-  "hello.p",
-  "procedure.p",
-  "customer-query.p",
-  "Customer.cls",
-  "MyClass.cls",
-  "IMyInterface.cls",
-  "MyEnum.cls",
-  "MyAbstract.cls",
-  "utils.i",
-  "schema.df",
+/**
+ * Sample files grouped by type under public/samples/abl/.
+ * Paths are relative to that directory (e.g. procedures/hello.p).
+ */
+const SAMPLE_MANIFEST: { folder: string; files: string[] }[] = [
+  {
+    folder: "procedures",
+    files: [
+      "hello.p",
+      "procedure.p",
+      "customer-query.p",
+      "progress-json.p",
+      "openedge-http.p",
+    ],
+  },
+  {
+    folder: "classes",
+    files: [
+      "Customer.cls",
+      "MyClass.cls",
+      "IMyInterface.cls",
+      "MyEnum.cls",
+      "MyAbstract.cls",
+      "progress-lang.cls",
+      "progress-collections.cls",
+      "openedge-string.cls",
+      "openedge-logging.cls",
+    ],
+  },
+  {
+    folder: "includes",
+    files: ["utils.i"],
+  },
+  {
+    folder: "schema",
+    files: ["schema.df"],
+  },
 ];
 
 async function loadSampleTree(): Promise<FileNode> {
   const children: FileNode[] = [];
-  for (const name of SAMPLE_MANIFEST) {
-    const res = await fetch(`/samples/abl/${name}`);
-    if (!res.ok) continue;
-    const content = await res.text();
+  for (const group of SAMPLE_MANIFEST) {
+    const dirPath = `samples/${group.folder}`;
+    const files: FileNode[] = [];
+    for (const name of group.files) {
+      const res = await fetch(`/samples/abl/${group.folder}/${name}`);
+      if (!res.ok) continue;
+      const content = await res.text();
+      files.push({
+        name,
+        path: `${dirPath}/${name}`,
+        kind: "file",
+        content,
+      });
+    }
+    if (files.length === 0) continue;
     children.push({
-      name,
-      path: `samples/${name}`,
-      kind: "file",
-      content,
+      name: group.folder,
+      path: dirPath,
+      kind: "directory",
+      children: files,
     });
   }
   return {
@@ -523,7 +559,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         root,
         rootName: root.name,
         cwd: root.name,
-        expanded: new Set([root.path]),
+        // Collapsed by default — user expands samples / type folders as needed
+        expanded: new Set<string>(),
         openTabs: [],
         activePath: null,
         buffers: {},
@@ -531,8 +568,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         loading: false,
         statusMessage: "Sample ABL project loaded",
       });
-      const first = root.children?.find((c) => c.name === "hello.p");
-      if (first) await get().openFile(first.path);
     } catch (err) {
       set({
         loading: false,

@@ -10,6 +10,11 @@ import type { FileNode } from "@/lib/workspace/types";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { isAblFile } from "./keywords";
 import {
+  getBuiltinMembers,
+  getBuiltinTypeSymbols,
+  resolveBuiltinTypeName,
+} from "./builtin/builtin-types";
+import {
   extractIncludes,
   extractSymbols,
   extractTypedVariables,
@@ -145,7 +150,7 @@ export function resolveIncludePath(
   );
 }
 
-function shortTypeName(name: string): string {
+export function shortTypeName(name: string): string {
   const parts = name.split(".");
   return parts[parts.length - 1] || name;
 }
@@ -165,6 +170,34 @@ function usingMatchesType(usingName: string, wildcard: boolean, typeName: string
     typeName.toLowerCase() === usingName.toLowerCase() ||
     shortTypeName(typeName).toLowerCase() === shortTypeName(usingName).toLowerCase()
   );
+}
+
+/** Resolve a type name via workspace types, builtins, and USING clauses. */
+export function resolveTypeName(
+  name: string,
+  usings: { name: string; wildcard: boolean }[],
+  workspaceTypes: AblSymbol[]
+): string {
+  const lower = name.toLowerCase();
+  const exact = workspaceTypes.find((t) => t.name.toLowerCase() === lower);
+  if (exact) return exact.name;
+
+  const shortHits = workspaceTypes.filter(
+    (t) => shortTypeName(t.name).toLowerCase() === lower
+  );
+  if (shortHits.length === 1) return shortHits[0].name;
+  if (shortHits.length > 1) {
+    const matched = shortHits.filter((t) =>
+      usings.some((u) => usingMatchesType(u.name, u.wildcard, t.name))
+    );
+    if (matched.length === 1) return matched[0].name;
+    if (matched.length > 1) return matched[0].name;
+  }
+
+  const builtin = resolveBuiltinTypeName(name, usings);
+  if (builtin) return builtin.name;
+
+  return name;
 }
 
 async function gatherWorkspaceTypes(
@@ -203,6 +236,20 @@ function indexMembers(types: AblSymbol[], allByPath: Map<string, AblSymbol[]>): 
   const memberSet = new Set(memberKinds());
 
   for (const t of types) {
+    const keys = new Set([t.name, shortTypeName(t.name)]);
+
+    if (t.path?.startsWith("builtin:")) {
+      // Only index once per FQN (skip short-name duplicate symbols)
+      const fqn = t.path.slice("builtin:".length);
+      if (t.name !== fqn) continue;
+      const members = getBuiltinMembers(fqn);
+      for (const key of keys) {
+        const existing = map.get(key.toLowerCase()) ?? [];
+        map.set(key.toLowerCase(), [...existing, ...members]);
+      }
+      continue;
+    }
+
     if (!t.path) continue;
     const fileSymbols = allByPath.get(t.path) ?? [];
     const members = fileSymbols.filter(
@@ -213,7 +260,6 @@ function indexMembers(types: AblSymbol[], allByPath: Map<string, AblSymbol[]>): 
           shortTypeName(s.container).toLowerCase() ===
             shortTypeName(t.name).toLowerCase())
     );
-    const keys = new Set([t.name, shortTypeName(t.name)]);
     for (const key of keys) {
       const existing = map.get(key.toLowerCase()) ?? [];
       map.set(key.toLowerCase(), [...existing, ...members]);
@@ -261,17 +307,25 @@ export async function getSymbolsForModel(
     }
   }
 
-  const allTypes = await gatherWorkspaceTypes(root, buffers, ablPaths);
+  const workspaceTypes = await gatherWorkspaceTypes(root, buffers, ablPaths);
+  const builtinTypes = getBuiltinTypeSymbols();
+  // Prefer workspace definitions over builtins when names collide
+  const workspaceKeys = new Set(
+    workspaceTypes.map((t) => t.name.toLowerCase())
+  );
+  const mergedBuiltins = builtinTypes.filter(
+    (t) => !workspaceKeys.has(t.name.toLowerCase())
+  );
+  const allTypes = [...workspaceTypes, ...mergedBuiltins];
   const usings = extractUsings(source);
   const typedVars = extractTypedVariables(source);
 
-  // Types visible: all .cls types if any USING, plus always short names from workspace for NEW
+  // Types visible: USING-matched first, then remaining (incl. FQN builtins)
   let types = allTypes;
   if (usings.length > 0) {
     const matched = allTypes.filter((t) =>
       usings.some((u) => usingMatchesType(u.name, u.wildcard, t.name))
     );
-    // Keep unmatched types available by qualified name for NEW pkg.Type
     const seen = new Set(matched.map((t) => t.name + "|" + (t.path ?? "")));
     types = [
       ...matched,
@@ -354,13 +408,15 @@ export async function resolveSymbolAt(
       const tv = ctx.typedVars.find(
         (v) => v.name.toLowerCase() === memberOwner.toLowerCase()
       );
-      typeKey = tv?.typeName ?? memberOwner;
+      typeKey = tv
+        ? resolveTypeName(tv.typeName, ctx.usings, ctx.types)
+        : resolveTypeName(memberOwner, ctx.usings, ctx.types);
     }
     if (typeKey) {
       const members =
         ctx.membersByType.get(typeKey.toLowerCase()) ??
         ctx.membersByType.get(shortTypeName(typeKey).toLowerCase()) ??
-        [];
+        getBuiltinMembers(typeKey);
       const hit = members.find((m) => m.name.toLowerCase() === lower);
       if (hit) return hit;
     }
@@ -372,8 +428,23 @@ export async function resolveSymbolAt(
     findInList(ctx.fromIncludes, word);
   if (localHit) return localHit;
 
-  const typeHit = findInList(ctx.types, word, typeKinds());
+  // Exact FQN / short name on workspace + builtin types
+  const resolvedName = resolveTypeName(word, ctx.usings, ctx.types);
+  const typeHit =
+    findInList(ctx.types, resolvedName, typeKinds()) ||
+    findInList(ctx.types, word, typeKinds());
   if (typeHit) return typeHit;
+
+  const builtin = resolveBuiltinTypeName(word, ctx.usings);
+  if (builtin) {
+    const builtinHit = ctx.types.find(
+      (t) =>
+        t.path === `builtin:${builtin.name}` &&
+        (t.name === builtin.name ||
+          shortTypeName(t.name).toLowerCase() === word.toLowerCase())
+    );
+    if (builtinHit) return builtinHit;
+  }
 
   // Members of current class by bare name
   if (ctx.currentTypeName) {
@@ -398,13 +469,15 @@ export function getMembersForOwner(
     const tv = ctx.typedVars.find(
       (v) => v.name.toLowerCase() === owner.toLowerCase()
     );
-    typeKey = tv?.typeName ?? owner;
+    typeKey = tv
+      ? resolveTypeName(tv.typeName, ctx.usings, ctx.types)
+      : resolveTypeName(owner, ctx.usings, ctx.types);
   }
   if (!typeKey) return [];
   return (
     ctx.membersByType.get(typeKey.toLowerCase()) ??
     ctx.membersByType.get(shortTypeName(typeKey).toLowerCase()) ??
-    []
+    getBuiltinMembers(typeKey)
   );
 }
 
