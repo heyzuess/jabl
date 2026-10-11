@@ -23,25 +23,6 @@ function isValidBody(body: unknown): body is OeRunRequest {
 }
 
 export async function POST(request: Request) {
-  // #region agent log
-  fetch("http://127.0.0.1:7730/ingest/0dbb69f1-5d3d-4ec4-9754-973d979c27ce", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "1e518f",
-    },
-    body: JSON.stringify({
-      sessionId: "1e518f",
-      runId: "post-fix",
-      hypothesisId: "H1",
-      location: "src/app/api/oe/run/route.ts:POST",
-      message: "OE run route POST entered (no dynamic export)",
-      data: { hasDynamicExport: false },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-
   let body: unknown;
   try {
     body = await request.json();
