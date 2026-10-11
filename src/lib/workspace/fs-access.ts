@@ -52,10 +52,13 @@ export async function walkDirectory(
   handle: FileSystemDirectoryHandle,
   basePath = ""
 ): Promise<FileNode> {
+  // Always prefix with the root folder name so child paths are unique and
+  // consistent with normalizePath / findNode (e.g. myproject/src/a.p).
+  const dirPath = basePath || handle.name;
   const children: FileNode[] = [];
 
   for await (const entry of handle.values()) {
-    const path = basePath ? `${basePath}/${entry.name}` : entry.name;
+    const path = `${dirPath}/${entry.name}`;
     if (entry.kind === "directory") {
       const dirHandle = entry as FileSystemDirectoryHandle;
       children.push(await walkDirectory(dirHandle, path));
@@ -76,7 +79,7 @@ export async function walkDirectory(
 
   return {
     name: handle.name,
-    path: basePath || handle.name,
+    path: dirPath,
     kind: "directory",
     handle,
     children,
@@ -349,19 +352,18 @@ function sortChildren(children: FileNode[]): void {
   });
 }
 
-/** Insert or replace a file node in the in-memory tree (immutable). */
-export function insertOrReplaceFileNode(
+/** Insert or replace a child node under its parent path (immutable). */
+export function insertOrReplaceChildNode(
   root: FileNode,
-  filePath: string,
-  fileNode: FileNode
+  childPath: string,
+  childNode: FileNode
 ): FileNode {
-  const parts = filePath.split("/");
+  const parts = childPath.split("/");
   if (parts.length < 2) {
-    // File at root level named same as root — treat as child of root
     const children = [...(root.children || [])];
-    const idx = children.findIndex((c) => c.path === filePath);
-    if (idx >= 0) children[idx] = fileNode;
-    else children.push(fileNode);
+    const idx = children.findIndex((c) => c.path === childPath);
+    if (idx >= 0) children[idx] = childNode;
+    else children.push(childNode);
     sortChildren(children);
     return { ...root, children };
   }
@@ -372,11 +374,10 @@ export function insertOrReplaceFileNode(
       return node;
     }
     if (depth === parts.length - 2) {
-      // Parent directory of the file
       const children = [...(node.children || [])];
-      const idx = children.findIndex((c) => c.path === filePath);
-      if (idx >= 0) children[idx] = fileNode;
-      else children.push(fileNode);
+      const idx = children.findIndex((c) => c.path === childPath);
+      if (idx >= 0) children[idx] = childNode;
+      else children.push(childNode);
       sortChildren(children);
       return { ...node, children };
     }
@@ -387,7 +388,6 @@ export function insertOrReplaceFileNode(
       (c) => c.kind === "directory" && (c.path === nextPath || c.name === nextName)
     );
     if (childIdx < 0) {
-      // Missing intermediate dir — create placeholder without handle
       const newDir: FileNode = {
         name: nextName,
         path: nextPath,
@@ -403,6 +403,22 @@ export function insertOrReplaceFileNode(
   };
 
   return cloneDir(root, 0);
+}
+
+/** @deprecated alias — prefer insertOrReplaceChildNode */
+export function insertOrReplaceFileNode(
+  root: FileNode,
+  filePath: string,
+  fileNode: FileNode
+): FileNode {
+  return insertOrReplaceChildNode(root, filePath, fileNode);
+}
+
+export async function createDirectoryInHandle(
+  parentHandle: FileSystemDirectoryHandle,
+  name: string
+): Promise<FileSystemDirectoryHandle> {
+  return parentHandle.getDirectoryHandle(name, { create: true });
 }
 
 /** Collect all directory paths under root (including root). */

@@ -7,14 +7,11 @@ import {
   FilePlus,
   Folder,
   FolderOpen,
+  FolderPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAblFile } from "@/lib/abl/keywords";
-import {
-  isLocalPath,
-  isOutsideWorkspacePath,
-  isUntitledPath,
-} from "@/lib/workspace/fs-access";
+import { isUntitledPath } from "@/lib/workspace/fs-access";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { useLayoutStore } from "@/lib/workspace/layout-store";
 import type { FileNode, OpenTab } from "@/lib/workspace/types";
@@ -30,36 +27,76 @@ function TreeNode({
   const isOpen = useWorkspaceStore((s) => s.expanded.has(node.path));
   const toggleExpanded = useWorkspaceStore((s) => s.toggleExpanded);
   const openFile = useWorkspaceStore((s) => s.openFile);
+  const setCwd = useWorkspaceStore((s) => s.setCwd);
+  const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
+  const openNewFolderDialog = useWorkspaceStore((s) => s.openNewFolderDialog);
   const isActive = useWorkspaceStore((s) => s.activePath === node.path);
+  const isCwd = useWorkspaceStore((s) => s.cwd === node.path);
   const isDirty = useWorkspaceStore((s) => !!s.dirty[node.path]);
   const abl = node.kind === "file" && isAblFile(node.name);
 
   if (node.kind === "directory") {
     return (
       <div>
-        <button
-          type="button"
+        <div
           className={cn(
-            "flex w-full items-center gap-1 rounded-sm px-1 py-0.5 text-left text-xs hover:bg-accent/60",
-            "text-foreground"
+            "group flex w-full items-center gap-0.5 rounded-sm pr-0.5 text-xs",
+            isCwd && "bg-accent/40"
           )}
           style={{ paddingLeft: 4 + depth * 12 }}
-          onClick={() => toggleExpanded(node.path)}
         >
-          {isOpen ? (
-            <ChevronDown className="size-3 shrink-0 opacity-70" />
-          ) : (
-            <ChevronRight className="size-3 shrink-0 opacity-70" />
-          )}
-          {isOpen ? (
-            <FolderOpen className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
-          ) : (
-            <Folder className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
-          )}
-          <span className="truncate">{node.name}</span>
-        </button>
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-1 py-0.5 text-left hover:bg-accent/60"
+            onClick={() => {
+              toggleExpanded(node.path);
+              setCwd(node.path);
+            }}
+            title={node.path}
+          >
+            {isOpen ? (
+              <ChevronDown className="size-3 shrink-0 opacity-70" />
+            ) : (
+              <ChevronRight className="size-3 shrink-0 opacity-70" />
+            )}
+            {isOpen ? (
+              <FolderOpen className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
+            ) : (
+              <Folder className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
+            )}
+            <span className="truncate">{node.name}</span>
+          </button>
+          <button
+            type="button"
+            title={`New file in ${node.name}`}
+            aria-label={`New file in ${node.name}`}
+            className="inline-flex size-5 shrink-0 items-center justify-center rounded opacity-0 hover:bg-accent group-hover:opacity-100 focus-visible:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCwd(node.path);
+              openNewFileDialog(node.path);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <FilePlus className="size-3" />
+          </button>
+          <button
+            type="button"
+            title={`New folder in ${node.name}`}
+            aria-label={`New folder in ${node.name}`}
+            className="inline-flex size-5 shrink-0 items-center justify-center rounded opacity-0 hover:bg-accent group-hover:opacity-100 focus-visible:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCwd(node.path);
+              openNewFolderDialog(node.path);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <FolderPlus className="size-3" />
+          </button>
+        </div>
         {isOpen &&
-          node.children?.map((child) => (
+          (node.children ?? []).map((child) => (
             <TreeNode key={child.path} node={child} depth={depth + 1} />
           ))}
       </div>
@@ -148,20 +185,19 @@ function TabSection({
 
 export function FileExplorer() {
   const root = useWorkspaceStore((s) => s.root);
-  const rootName = useWorkspaceStore((s) => s.rootName);
   const loading = useWorkspaceStore((s) => s.loading);
   const openTabs = useWorkspaceStore((s) => s.openTabs);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
+  const openNewFolderDialog = useWorkspaceStore((s) => s.openNewFolderDialog);
   const explorerMinimized = useLayoutStore((s) => s.minimized.explorer);
 
+  // Open files = every open tab that is not an unsaved new buffer
+  // (workspace files + outside/local files).
+  const openFileTabs = openTabs.filter(
+    (t) => !t.unsaved && !isUntitledPath(t.path)
+  );
   const unsavedTabs = openTabs.filter(
     (t) => t.unsaved || isUntitledPath(t.path)
-  );
-  const outsideTabs = openTabs.filter(
-    (t) =>
-      !t.unsaved &&
-      !isUntitledPath(t.path) &&
-      (isLocalPath(t.path) || isOutsideWorkspacePath(t.path, rootName))
   );
 
   return (
@@ -170,16 +206,29 @@ export function FileExplorer() {
         pane="explorer"
         title="Explorer"
         actions={
-          <button
-            type="button"
-            title="New File (Ctrl/Cmd+N)"
-            aria-label="New File"
-            className="inline-flex size-6 items-center justify-center rounded-md text-foreground hover:bg-accent"
-            onClick={() => openNewFileDialog()}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <FilePlus className="size-3.5" />
-          </button>
+          <>
+            <button
+              type="button"
+              title="New File (Ctrl/Cmd+N)"
+              aria-label="New File"
+              className="inline-flex size-6 items-center justify-center rounded-md text-foreground hover:bg-accent"
+              onClick={() => openNewFileDialog()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <FilePlus className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              title="New Folder"
+              aria-label="New Folder"
+              className="inline-flex size-6 items-center justify-center rounded-md text-foreground hover:bg-accent"
+              onClick={() => openNewFolderDialog()}
+              onPointerDown={(e) => e.stopPropagation()}
+              disabled={!root}
+            >
+              <FolderPlus className="size-3.5" />
+            </button>
+          </>
         }
       />
       {!explorerMinimized && (
@@ -205,7 +254,7 @@ export function FileExplorer() {
               <TreeNode node={root} depth={0} />
             </>
           )}
-          <TabSection title="Open files" tabs={outsideTabs} />
+          <TabSection title="Open files" tabs={openFileTabs} />
           <TabSection title="Unsaved" tabs={unsavedTabs} />
         </div>
       )}

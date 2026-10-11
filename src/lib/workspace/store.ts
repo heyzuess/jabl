@@ -4,7 +4,9 @@ import { create } from "zustand";
 import { languageIdForPath } from "@/lib/abl/register";
 import { languageForFilename } from "@/lib/abl/templates";
 import {
+  createDirectoryInHandle,
   findNode,
+  insertOrReplaceChildNode,
   insertOrReplaceFileNode,
   isLocalPath,
   isTextFile,
@@ -35,6 +37,16 @@ export type CreateUntitledInput = {
   name: string;
   content: string;
   language?: string;
+  /** Preferred directory for a later Save (when not written immediately). */
+  targetDir?: string;
+};
+
+export type CreateNewFileInput = {
+  name: string;
+  content: string;
+  language?: string;
+  /** Directory under the open folder to create in (defaults to cwd). */
+  dirPath?: string;
 };
 
 export type SaveFileDialogState = {
@@ -57,6 +69,10 @@ export type WorkspaceState = {
   statusMessage: string | null;
   loading: boolean;
   newFileDialogOpen: boolean;
+  /** Prefill directory in the New File dialog. */
+  newFileDefaultDir: string;
+  newFolderDialogOpen: boolean;
+  newFolderDefaultDir: string;
   saveFileDialog: SaveFileDialogState;
   /** Command line injected into the terminal (menu → CLI bridge). */
   terminalInject: string | null;
@@ -72,6 +88,8 @@ export type WorkspaceState = {
   loadSamples: () => Promise<void>;
   openFile: (path: string) => Promise<void>;
   createUntitledFile: (input: CreateUntitledInput) => void;
+  createNewFile: (input: CreateNewFileInput) => Promise<void>;
+  createNewFolder: (parentDir: string, name: string) => Promise<void>;
   setActivePath: (path: string) => void;
   closeTab: (path: string) => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
@@ -86,7 +104,9 @@ export type WorkspaceState = {
   readAt: (path: string) => Promise<string>;
   setStatus: (msg: string | null) => void;
   setNewFileDialogOpen: (open: boolean) => void;
-  openNewFileDialog: () => void;
+  openNewFileDialog: (dirPath?: string) => void;
+  setNewFolderDialogOpen: (open: boolean) => void;
+  openNewFolderDialog: (dirPath?: string) => void;
   injectTerminal: (cmd: string) => void;
   clearTerminalInject: () => void;
   requestSyntaxCheck: (
@@ -94,6 +114,29 @@ export type WorkspaceState = {
   ) => void;
   clearSyntaxFocus: () => void;
 };
+
+function uniqueChildName(
+  parent: FileNode,
+  baseName: string,
+  kind: "file" | "directory"
+): string {
+  const used = new Set(
+    (parent.children || [])
+      .filter((c) => c.kind === kind)
+      .map((c) => c.name.toLowerCase())
+  );
+  if (!used.has(baseName.toLowerCase())) return baseName;
+  const dot = baseName.lastIndexOf(".");
+  const stem = kind === "file" && dot > 0 ? baseName.slice(0, dot) : baseName;
+  const ext = kind === "file" && dot > 0 ? baseName.slice(dot) : "";
+  let n = 2;
+  let candidate = `${stem}-${n}${ext}`;
+  while (used.has(candidate.toLowerCase())) {
+    n += 1;
+    candidate = `${stem}-${n}${ext}`;
+  }
+  return candidate;
+}
 
 /** Keep untitled/local tabs when swapping the workspace root. */
 function preserveOutsideState(state: {
@@ -237,6 +280,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   statusMessage: null,
   loading: false,
   newFileDialogOpen: false,
+  newFileDefaultDir: "",
+  newFolderDialogOpen: false,
+  newFolderDefaultDir: "",
   saveFileDialog: {
     open: false,
     path: "",
@@ -249,7 +295,21 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   setStatus: (msg) => set({ statusMessage: msg }),
   setNewFileDialogOpen: (open) => set({ newFileDialogOpen: open }),
-  openNewFileDialog: () => set({ newFileDialogOpen: true }),
+  openNewFileDialog: (dirPath) => {
+    const { cwd, rootName } = get();
+    set({
+      newFileDialogOpen: true,
+      newFileDefaultDir: dirPath || cwd || rootName || "",
+    });
+  },
+  setNewFolderDialogOpen: (open) => set({ newFolderDialogOpen: open }),
+  openNewFolderDialog: (dirPath) => {
+    const { cwd, rootName } = get();
+    set({
+      newFolderDialogOpen: true,
+      newFolderDefaultDir: dirPath || cwd || rootName || "",
+    });
+  },
   setSaveFileDialogOpen: (open) =>
     set((s) => ({ saveFileDialog: { ...s.saveFileDialog, open } })),
 
@@ -502,8 +562,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     editorLayout().openInFocusedGroup(path);
   },
 
-  createUntitledFile: ({ name, content, language }) => {
-    const { openTabs } = get();
+  createUntitledFile: ({ name, content, language, targetDir }) => {
+    const { openTabs, cwd, rootName } = get();
     const path = uniqueUntitledPath(name, openTabs);
     const fileName = path.split("/").pop() || name || "untitled.p";
     const tab: OpenTab = {
@@ -512,14 +572,202 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       language: language || languageForFilename(fileName),
       unsaved: true,
     };
+    const preferredDir = targetDir || cwd || rootName || "";
     set({
       buffers: { ...get().buffers, [path]: content },
       dirty: { ...get().dirty, [path]: false },
       openTabs: [...openTabs, tab],
       activePath: path,
+      newFileDefaultDir: preferredDir,
       statusMessage: `Created ${fileName}`,
     });
     editorLayout().openInFocusedGroup(path);
+  },
+
+  createNewFile: async ({ name, content, language, dirPath }) => {
+    const { root, rootName, cwd, mode, openTabs } = get();
+    const fileName = (name.trim() || "untitled.p").replace(/^.*[/\\]/, "");
+    const parentPath = normalizePath(
+      dirPath || cwd || rootName || "",
+      rootName || "workspace"
+    );
+
+    if (!root || !rootName) {
+      get().createUntitledFile({
+        name: fileName,
+        content,
+        language,
+        targetDir: dirPath,
+      });
+      return;
+    }
+
+    const parent = findNode(root, parentPath);
+    if (!parent || parent.kind !== "directory") {
+      get().createUntitledFile({
+        name: fileName,
+        content,
+        language,
+        targetDir: parentPath,
+      });
+      return;
+    }
+
+    const uniqueName = uniqueChildName(parent, fileName, "file");
+    const newPath = `${parentPath}/${uniqueName}`;
+
+    if (mode === "fs-access") {
+      const dirHandle = resolveDirectoryHandle(root, parentPath);
+      if (!dirHandle) {
+        get().createUntitledFile({
+          name: uniqueName,
+          content,
+          language,
+          targetDir: parentPath,
+        });
+        return;
+      }
+      try {
+        const fileHandle = await writeFileInDirectory(
+          dirHandle,
+          uniqueName,
+          content
+        );
+        const fileNode: FileNode = {
+          name: uniqueName,
+          path: newPath,
+          kind: "file",
+          handle: fileHandle,
+          content,
+        };
+        const nextRoot = insertOrReplaceChildNode(root, newPath, fileNode);
+        const expanded = new Set(get().expanded);
+        expanded.add(parentPath);
+        const tab: OpenTab = {
+          path: newPath,
+          name: uniqueName,
+          language: language || languageForFilename(uniqueName),
+        };
+        const already = openTabs.some((t) => t.path === newPath);
+        set({
+          root: nextRoot,
+          expanded,
+          buffers: { ...get().buffers, [newPath]: content },
+          dirty: { ...get().dirty, [newPath]: false },
+          openTabs: already ? openTabs : [...openTabs, tab],
+          activePath: newPath,
+          cwd: parentPath,
+          statusMessage: `Created ${newPath}`,
+        });
+        editorLayout().openInFocusedGroup(newPath);
+        return;
+      } catch (err) {
+        set({
+          statusMessage: `Create failed: ${(err as Error).message}`,
+        });
+        return;
+      }
+    }
+
+    // samples / readonly-input: in-memory tree entry
+    const fileNode: FileNode = {
+      name: uniqueName,
+      path: newPath,
+      kind: "file",
+      content,
+    };
+    const nextRoot = insertOrReplaceChildNode(root, newPath, fileNode);
+    const expanded = new Set(get().expanded);
+    expanded.add(parentPath);
+    const tab: OpenTab = {
+      path: newPath,
+      name: uniqueName,
+      language: language || languageForFilename(uniqueName),
+      unsaved: mode === "readonly-input",
+    };
+    set({
+      root: nextRoot,
+      expanded,
+      buffers: { ...get().buffers, [newPath]: content },
+      dirty: { ...get().dirty, [newPath]: false },
+      openTabs: [...openTabs, tab],
+      activePath: newPath,
+      cwd: parentPath,
+      statusMessage: `Created ${newPath}`,
+    });
+    editorLayout().openInFocusedGroup(newPath);
+  },
+
+  createNewFolder: async (parentDir, name) => {
+    const { root, rootName, mode } = get();
+    if (!root || !rootName) {
+      set({ statusMessage: "Open a folder before creating a directory" });
+      return;
+    }
+    const folderName = name.trim().replace(/[/\\]/g, "");
+    if (!folderName) {
+      set({ statusMessage: "Folder name required" });
+      return;
+    }
+    const parentPath = normalizePath(parentDir || rootName, rootName);
+    const parent = findNode(root, parentPath);
+    if (!parent || parent.kind !== "directory") {
+      set({ statusMessage: `Directory not found: ${parentPath}` });
+      return;
+    }
+    const uniqueName = uniqueChildName(parent, folderName, "directory");
+    const newPath = `${parentPath}/${uniqueName}`;
+
+    if (mode === "fs-access") {
+      const dirHandle = resolveDirectoryHandle(root, parentPath);
+      if (!dirHandle) {
+        set({ statusMessage: "Directory is not writable" });
+        return;
+      }
+      try {
+        const childHandle = await createDirectoryInHandle(dirHandle, uniqueName);
+        const dirNode: FileNode = {
+          name: uniqueName,
+          path: newPath,
+          kind: "directory",
+          handle: childHandle,
+          children: [],
+        };
+        const nextRoot = insertOrReplaceChildNode(root, newPath, dirNode);
+        const expanded = new Set(get().expanded);
+        expanded.add(parentPath);
+        expanded.add(newPath);
+        set({
+          root: nextRoot,
+          expanded,
+          cwd: newPath,
+          statusMessage: `Created folder ${newPath}`,
+        });
+        return;
+      } catch (err) {
+        set({
+          statusMessage: `Create folder failed: ${(err as Error).message}`,
+        });
+        return;
+      }
+    }
+
+    const dirNode: FileNode = {
+      name: uniqueName,
+      path: newPath,
+      kind: "directory",
+      children: [],
+    };
+    const nextRoot = insertOrReplaceChildNode(root, newPath, dirNode);
+    const expanded = new Set(get().expanded);
+    expanded.add(parentPath);
+    expanded.add(newPath);
+    set({
+      root: nextRoot,
+      expanded,
+      cwd: newPath,
+      statusMessage: `Created folder ${newPath}`,
+    });
   },
 
   setActivePath: (path) => {
@@ -660,7 +908,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           open: true,
           path: activePath,
           suggestedName: suggested,
-          defaultDir: cwd || rootName,
+          defaultDir: get().newFileDefaultDir || cwd || rootName,
         },
       });
       return;
