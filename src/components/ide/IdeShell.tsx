@@ -9,10 +9,11 @@ import {
 } from "react-resizable-panels";
 import { TitleBar } from "./TitleBar";
 import { FileExplorer } from "./FileExplorer";
-import { EditorPane } from "./EditorPane";
+import { EditorSplitTree } from "./EditorSplitTree";
 import { TerminalPane } from "./TerminalPane";
 import { ThemeSettings } from "./ThemeSettings";
 import { NewFileDialog } from "./NewFileDialog";
+import { SaveFileDialog } from "./SaveFileDialog";
 import { EdgeSnapOverlay } from "./EdgeSnapOverlay";
 import { useIdeTheme } from "@/hooks/use-theme";
 import { useWorkspaceStore } from "@/lib/workspace/store";
@@ -68,7 +69,7 @@ function IdeShellClient() {
   const themeKey = `${theme.mode}-${theme.custom.editorBackground}-${theme.custom.keyword}-${theme.custom.comment}-${theme.custom.accent}-${theme.custom.editorForeground}`;
 
   const editor = (
-    <EditorPane applyTheme={applyToMonaco} themeKey={themeKey} />
+    <EditorSplitTree applyTheme={applyToMonaco} themeKey={themeKey} />
   );
   const explorer = <FileExplorer />;
   const terminal = (
@@ -150,6 +151,7 @@ function IdeShellClient() {
           open={newFileDialogOpen}
           onOpenChange={setNewFileDialogOpen}
         />
+        <SaveFileDialog />
       </div>
     </TooltipProvider>
   );

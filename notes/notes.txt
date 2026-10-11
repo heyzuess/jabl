@@ -3,3 +3,6 @@
 - Language Server Protocol / full semantic analysis
 - Electron/desktop packaging
 - Multi-user auth or cloud sync
+- Persisting editor split tree across reloads
+- Real OS terminal CWD (virtual cwd only today)
+- Changing shell explorer/terminal docking

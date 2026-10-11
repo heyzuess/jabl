@@ -63,8 +63,8 @@ export function NewFileDialog({ open, onOpenChange }: NewFileDialogProps) {
         <DialogHeader>
           <DialogTitle>New file</DialogTitle>
           <DialogDescription>
-            Create an unsaved editor tab. Pick a template, then Save locally when
-            you are ready.
+            Create an unsaved editor tab. Pick a template, then Save to choose a
+            directory (defaults to the open folder cwd).
           </DialogDescription>
         </DialogHeader>
 

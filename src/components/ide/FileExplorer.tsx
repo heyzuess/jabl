@@ -10,9 +10,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAblFile } from "@/lib/abl/keywords";
+import {
+  isLocalPath,
+  isOutsideWorkspacePath,
+  isUntitledPath,
+} from "@/lib/workspace/fs-access";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { useLayoutStore } from "@/lib/workspace/layout-store";
-import type { FileNode } from "@/lib/workspace/types";
+import type { FileNode, OpenTab } from "@/lib/workspace/types";
 import { PaneChrome } from "./PaneChrome";
 
 function TreeNode({
@@ -90,11 +95,74 @@ function TreeNode({
   );
 }
 
+function TabSection({
+  title,
+  tabs,
+}: {
+  title: string;
+  tabs: OpenTab[];
+}) {
+  const setActivePath = useWorkspaceStore((s) => s.setActivePath);
+  const activePath = useWorkspaceStore((s) => s.activePath);
+  const dirty = useWorkspaceStore((s) => s.dirty);
+
+  if (tabs.length === 0) return null;
+
+  return (
+    <div className="mt-3 border-t border-border pt-2">
+      <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </p>
+      {tabs.map((tab) => {
+        const active = tab.path === activePath;
+        const abl = isAblFile(tab.name);
+        return (
+          <button
+            key={tab.path}
+            type="button"
+            className={cn(
+              "flex w-full items-center gap-1 rounded-sm px-1 py-0.5 text-left text-xs hover:bg-accent/60",
+              active && "bg-accent text-accent-foreground",
+              abl && !active && "text-[var(--ide-keyword)]"
+            )}
+            style={{ paddingLeft: 18 }}
+            onClick={() => setActivePath(tab.path)}
+            title={tab.path}
+          >
+            <FileCode2
+              className={cn(
+                "size-3.5 shrink-0",
+                abl ? "text-[var(--ide-keyword)]" : "opacity-60"
+              )}
+            />
+            <span className="truncate">
+              {tab.name}
+              {dirty[tab.path] ? " *" : ""}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function FileExplorer() {
   const root = useWorkspaceStore((s) => s.root);
+  const rootName = useWorkspaceStore((s) => s.rootName);
   const loading = useWorkspaceStore((s) => s.loading);
+  const openTabs = useWorkspaceStore((s) => s.openTabs);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
   const explorerMinimized = useLayoutStore((s) => s.minimized.explorer);
+
+  const unsavedTabs = openTabs.filter(
+    (t) => t.unsaved || isUntitledPath(t.path)
+  );
+  const outsideTabs = openTabs.filter(
+    (t) =>
+      !t.unsaved &&
+      !isUntitledPath(t.path) &&
+      (isLocalPath(t.path) || isOutsideWorkspacePath(t.path, rootName))
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--ide-sidebar)]">
@@ -129,7 +197,16 @@ export function FileExplorer() {
               </p>
             </div>
           )}
-          {root && <TreeNode node={root} depth={0} />}
+          {root && (
+            <>
+              <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {root.name}
+              </p>
+              <TreeNode node={root} depth={0} />
+            </>
+          )}
+          <TabSection title="Open files" tabs={outsideTabs} />
+          <TabSection title="Unsaved" tabs={unsavedTabs} />
         </div>
       )}
     </div>

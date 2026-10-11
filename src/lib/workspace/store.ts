@@ -5,26 +5,43 @@ import { languageIdForPath } from "@/lib/abl/register";
 import { languageForFilename } from "@/lib/abl/templates";
 import {
   findNode,
+  insertOrReplaceFileNode,
+  isLocalPath,
   isTextFile,
+  isUntitledPath,
   listDirectory,
   normalizePath,
   pickDirectory,
   pickOpenFiles,
   readAttachedFile,
   readFileHandle,
+  resolveDirectoryHandle,
   saveTextFileLocally,
   supportsDirectoryPicker,
   supportsOpenFilePicker,
   treeFromFileList,
   walkDirectory,
   writeFileHandle,
+  writeFileInDirectory,
 } from "./fs-access";
+import { useEditorLayoutStore } from "./editor-layout-store";
 import type { FileNode, FsMode, OpenTab } from "./types";
+
+function editorLayout() {
+  return useEditorLayoutStore.getState();
+}
 
 export type CreateUntitledInput = {
   name: string;
   content: string;
   language?: string;
+};
+
+export type SaveFileDialogState = {
+  open: boolean;
+  path: string;
+  suggestedName: string;
+  defaultDir: string;
 };
 
 export type WorkspaceState = {
@@ -40,6 +57,7 @@ export type WorkspaceState = {
   statusMessage: string | null;
   loading: boolean;
   newFileDialogOpen: boolean;
+  saveFileDialog: SaveFileDialogState;
   /** Command line injected into the terminal (menu → CLI bridge). */
   terminalInject: string | null;
   /** Bumped to force an immediate syntax re-check in the editor. */
@@ -59,6 +77,9 @@ export type WorkspaceState = {
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   updateBuffer: (path: string, value: string) => void;
   saveActive: () => Promise<void>;
+  setSaveFileDialogOpen: (open: boolean) => void;
+  saveActiveToDirectory: (dirPath: string, fileName: string) => Promise<void>;
+  saveActiveToOtherLocation: () => Promise<void>;
   toggleExpanded: (path: string) => void;
   setCwd: (path: string) => void;
   listAt: (path?: string) => FileNode[];
@@ -73,6 +94,72 @@ export type WorkspaceState = {
   ) => void;
   clearSyntaxFocus: () => void;
 };
+
+/** Keep untitled/local tabs when swapping the workspace root. */
+function preserveOutsideState(state: {
+  openTabs: OpenTab[];
+  buffers: Record<string, string>;
+  dirty: Record<string, boolean>;
+  activePath: string | null;
+}): {
+  openTabs: OpenTab[];
+  buffers: Record<string, string>;
+  dirty: Record<string, boolean>;
+  activePath: string | null;
+} {
+  const openTabs = state.openTabs.filter(
+    (t) => isUntitledPath(t.path) || isLocalPath(t.path) || t.unsaved
+  );
+  const keep = new Set(openTabs.map((t) => t.path));
+  const buffers: Record<string, string> = {};
+  const dirty: Record<string, boolean> = {};
+  for (const path of keep) {
+    if (state.buffers[path] != null) buffers[path] = state.buffers[path];
+    if (state.dirty[path] != null) dirty[path] = state.dirty[path];
+  }
+  const activePath =
+    state.activePath && keep.has(state.activePath)
+      ? state.activePath
+      : openTabs.length
+        ? openTabs[openTabs.length - 1].path
+        : null;
+  return { openTabs, buffers, dirty, activePath };
+}
+
+function remapTabPath(
+  openTabs: OpenTab[],
+  buffers: Record<string, string>,
+  dirty: Record<string, boolean>,
+  oldPath: string,
+  newPath: string,
+  content: string,
+  patch: Partial<OpenTab>
+): {
+  openTabs: OpenTab[];
+  buffers: Record<string, string>;
+  dirty: Record<string, boolean>;
+} {
+  const nextBuffers = { ...buffers };
+  const nextDirty = { ...dirty };
+  if (newPath !== oldPath) {
+    nextBuffers[newPath] = content;
+    delete nextBuffers[oldPath];
+    delete nextDirty[oldPath];
+  } else {
+    nextBuffers[newPath] = content;
+  }
+  nextDirty[newPath] = false;
+  const nextTabs = openTabs.map((t) =>
+    t.path === oldPath
+      ? {
+          ...t,
+          path: newPath,
+          ...patch,
+        }
+      : t
+  );
+  return { openTabs: nextTabs, buffers: nextBuffers, dirty: nextDirty };
+}
 
 function uniqueUntitledPath(name: string, openTabs: OpenTab[]): string {
   const safe = name.trim() || "untitled.p";
@@ -150,6 +237,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   statusMessage: null,
   loading: false,
   newFileDialogOpen: false,
+  saveFileDialog: {
+    open: false,
+    path: "",
+    suggestedName: "untitled.p",
+    defaultDir: "",
+  },
   terminalInject: null,
   syntaxCheckNonce: 0,
   syntaxFocus: null,
@@ -157,6 +250,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   setStatus: (msg) => set({ statusMessage: msg }),
   setNewFileDialogOpen: (open) => set({ newFileDialogOpen: open }),
   openNewFileDialog: () => set({ newFileDialogOpen: true }),
+  setSaveFileDialogOpen: (open) =>
+    set((s) => ({ saveFileDialog: { ...s.saveFileDialog, open } })),
 
   injectTerminal: (cmd) => set({ terminalInject: cmd }),
   clearTerminalInject: () => set({ terminalInject: null }),
@@ -183,16 +278,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         return;
       }
       const root = await walkDirectory(handle);
+      const preserved = preserveOutsideState(get());
+      editorLayout().retainPaths(preserved.openTabs.map((t) => t.path));
       set({
         mode: "fs-access",
         root,
         rootName: root.name,
         cwd: root.name,
         expanded: new Set([root.path]),
-        openTabs: [],
-        activePath: null,
-        buffers: {},
-        dirty: {},
+        ...preserved,
         loading: false,
         statusMessage: `Opened ${root.name}`,
       });
@@ -222,16 +316,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         }
       };
       await preload(root);
+      const preserved = preserveOutsideState(get());
+      editorLayout().retainPaths(preserved.openTabs.map((t) => t.path));
       set({
         mode: "readonly-input",
         root,
         rootName: root.name,
         cwd: root.name,
         expanded: new Set([root.path]),
-        openTabs: [],
-        activePath: null,
-        buffers: {},
-        dirty: {},
+        ...preserved,
         loading: false,
         statusMessage: `Opened ${root.name} (read-only — Save downloads the file)`,
       });
@@ -291,6 +384,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
             ? `Opened ${openTabs[openTabs.length - 1]?.name}`
             : `Opened ${opened} files`,
       });
+      for (const tab of openTabs.slice(-opened)) {
+        editorLayout().openInFocusedGroup(tab.path);
+      }
     } catch (err) {
       set({
         statusMessage: `Failed to open file: ${(err as Error).message}`,
@@ -333,6 +429,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
             ? `Opened ${openTabs[openTabs.length - 1]?.name}`
             : `Opened ${opened} files`,
       });
+      for (const tab of openTabs.slice(-opened)) {
+        editorLayout().openInFocusedGroup(tab.path);
+      }
     } catch (err) {
       set({
         statusMessage: `Failed to open file: ${(err as Error).message}`,
@@ -344,6 +443,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ loading: true, statusMessage: "Loading sample ABL project…" });
     try {
       const root = await loadSampleTree();
+      editorLayout().resetLayout();
       set({
         mode: "samples",
         root,
@@ -399,6 +499,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       activePath: path,
       statusMessage: `Opened ${node.name}`,
     });
+    editorLayout().openInFocusedGroup(path);
   },
 
   createUntitledFile: ({ name, content, language }) => {
@@ -418,9 +519,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       activePath: path,
       statusMessage: `Created ${fileName}`,
     });
+    editorLayout().openInFocusedGroup(path);
   },
 
-  setActivePath: (path) => set({ activePath: path }),
+  setActivePath: (path) => {
+    set({ activePath: path });
+    editorLayout().revealPath(path);
+  },
 
   closeTab: (path) => {
     const { openTabs, activePath, buffers, dirty } = get();
@@ -429,9 +534,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const nextDirty = { ...dirty };
     delete nextBuffers[path];
     delete nextDirty[path];
-    let nextActive = activePath;
-    if (activePath === path) {
-      nextActive = nextTabs.length ? nextTabs[nextTabs.length - 1].path : null;
+    editorLayout().closeTabInGroups(path);
+    const focused = editorLayout().getFocusedGroup();
+    let nextActive = focused.activePath;
+    if (!nextActive || nextActive === path) {
+      nextActive =
+        activePath === path
+          ? nextTabs.length
+            ? nextTabs[nextTabs.length - 1].path
+            : null
+          : activePath;
     }
     set({
       openTabs: nextTabs,
@@ -442,7 +554,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   reorderTabs: (fromIndex, toIndex) => {
+    const focused = editorLayout().getFocusedGroup();
+    editorLayout().reorderTabsInGroup(focused.id, fromIndex, toIndex);
+    // Keep global openTabs order loosely in sync with focused group
     const { openTabs } = get();
+    const groupPaths = editorLayout().groups[focused.id]?.tabPaths ?? [];
+    const inGroup = new Set(groupPaths);
+    const rest = openTabs.filter((t) => !inGroup.has(t.path));
+    const ordered = [
+      ...groupPaths
+        .map((p) => openTabs.find((t) => t.path === p))
+        .filter((t): t is OpenTab => !!t),
+      ...rest,
+    ];
     if (
       fromIndex === toIndex ||
       fromIndex < 0 ||
@@ -450,12 +574,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       fromIndex >= openTabs.length ||
       toIndex >= openTabs.length
     ) {
+      set({ openTabs: ordered });
       return;
     }
-    const next = [...openTabs];
-    const [moved] = next.splice(fromIndex, 1);
-    next.splice(toIndex, 0, moved);
-    set({ openTabs: next });
+    set({ openTabs: ordered });
   },
 
   updateBuffer: (path, value) => {
@@ -466,7 +588,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   saveActive: async () => {
-    const { activePath, buffers, root, mode, dirty, openTabs } = get();
+    const { activePath, buffers, root, mode, dirty, openTabs, cwd, rootName } =
+      get();
     if (!activePath) {
       set({ statusMessage: "No file open to save" });
       return;
@@ -476,7 +599,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const node = findNode(root, activePath);
 
     // Bound handle from a previous Save File Picker
-    if (tab?.fileHandle) {
+    if (tab?.fileHandle && !tab.unsaved && !isUntitledPath(activePath)) {
       try {
         await writeFileHandle(tab.fileHandle, content);
         set({
@@ -497,6 +620,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     // Folder file with FS Access handle
     if (
       !tab?.unsaved &&
+      !isUntitledPath(activePath) &&
+      !isLocalPath(activePath) &&
       mode === "fs-access" &&
       node?.handle &&
       node.kind === "file"
@@ -518,9 +643,30 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       return;
     }
 
-    // Unsaved / samples / readonly: picker or download
     const suggested =
       tab?.name || node?.name || activePath.split("/").pop() || "untitled.p";
+
+    // New/unsaved or outside file: choose directory inside open folder
+    if (
+      mode === "fs-access" &&
+      root &&
+      (tab?.unsaved ||
+        isUntitledPath(activePath) ||
+        isLocalPath(activePath) ||
+        !node)
+    ) {
+      set({
+        saveFileDialog: {
+          open: true,
+          path: activePath,
+          suggestedName: suggested,
+          defaultDir: cwd || rootName,
+        },
+      });
+      return;
+    }
+
+    // Samples / readonly / no workspace: picker or download
     try {
       const result = await saveTextFileLocally(suggested, content);
       if (!result) {
@@ -531,41 +677,159 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const oldPath = activePath;
       const newName = result.name;
       const newPath =
-        tab?.unsaved || oldPath.startsWith("untitled/")
+        tab?.unsaved || isUntitledPath(oldPath)
           ? `local/${newName}`
           : oldPath;
 
-      const nextBuffers = { ...get().buffers };
-      const nextDirty = { ...get().dirty };
-      if (newPath !== oldPath) {
-        nextBuffers[newPath] = content;
-        delete nextBuffers[oldPath];
-        delete nextDirty[oldPath];
-      }
-      nextDirty[newPath] = false;
-
-      const nextTabs = get().openTabs.map((t) => {
-        if (t.path !== oldPath) return t;
-        return {
-          ...t,
-          path: newPath,
+      const remapped = remapTabPath(
+        get().openTabs,
+        get().buffers,
+        get().dirty,
+        oldPath,
+        newPath,
+        content,
+        {
           name: newName,
           language: languageForFilename(newName),
           unsaved: false,
-          fileHandle: result.handle ?? t.fileHandle,
-        };
-      });
+          fileHandle: result.handle,
+        }
+      );
 
       set({
-        buffers: nextBuffers,
-        dirty: nextDirty,
-        openTabs: nextTabs,
+        ...remapped,
         activePath: newPath,
         statusMessage:
           result.method === "picker"
             ? `Saved ${newName}`
             : `Downloaded ${newName}`,
       });
+      if (oldPath !== newPath) editorLayout().remapPath(oldPath, newPath);
+      else editorLayout().openInFocusedGroup(newPath);
+    } catch (err) {
+      set({
+        statusMessage: `Save failed: ${(err as Error).message}`,
+      });
+    }
+  },
+
+  saveActiveToDirectory: async (dirPath, fileName) => {
+    const { root, mode, openTabs, buffers, dirty, expanded, saveFileDialog } =
+      get();
+    const activePath = saveFileDialog.path || get().activePath;
+    if (!activePath) {
+      set({ statusMessage: "No file open to save" });
+      return;
+    }
+    if (mode !== "fs-access" || !root) {
+      set({ statusMessage: "No writable folder open" });
+      return;
+    }
+    const name = fileName.trim() || "untitled.p";
+    const content = buffers[activePath] ?? "";
+    const dirHandle = resolveDirectoryHandle(root, dirPath);
+    if (!dirHandle) {
+      set({
+        statusMessage: `Cannot save: directory not writable (${dirPath})`,
+      });
+      return;
+    }
+
+    try {
+      const fileHandle = await writeFileInDirectory(dirHandle, name, content);
+      const newPath = `${normalizePath(dirPath, root.name)}/${name}`;
+      const fileNode: FileNode = {
+        name,
+        path: newPath,
+        kind: "file",
+        handle: fileHandle,
+        content,
+      };
+      const nextRoot = insertOrReplaceFileNode(root, newPath, fileNode);
+      const remapped = remapTabPath(
+        openTabs,
+        buffers,
+        dirty,
+        activePath,
+        newPath,
+        content,
+        {
+          name,
+          language: languageForFilename(name),
+          unsaved: false,
+          fileHandle,
+        }
+      );
+      const nextExpanded = new Set(expanded);
+      nextExpanded.add(normalizePath(dirPath, root.name));
+      nextExpanded.add(root.path);
+
+      set({
+        root: nextRoot,
+        ...remapped,
+        activePath: newPath,
+        expanded: nextExpanded,
+        saveFileDialog: { ...saveFileDialog, open: false },
+        statusMessage: `Saved ${newPath}`,
+      });
+      if (activePath !== newPath) editorLayout().remapPath(activePath, newPath);
+      else editorLayout().openInFocusedGroup(newPath);
+    } catch (err) {
+      set({
+        statusMessage: `Save failed: ${(err as Error).message}`,
+      });
+    }
+  },
+
+  saveActiveToOtherLocation: async () => {
+    const { saveFileDialog, buffers, openTabs } = get();
+    const activePath = saveFileDialog.path || get().activePath;
+    if (!activePath) {
+      set({ statusMessage: "No file open to save" });
+      return;
+    }
+    const content = buffers[activePath] ?? "";
+    const tab = openTabs.find((t) => t.path === activePath);
+    const suggested =
+      saveFileDialog.suggestedName ||
+      tab?.name ||
+      activePath.split("/").pop() ||
+      "untitled.p";
+
+    try {
+      const result = await saveTextFileLocally(suggested, content);
+      if (!result) {
+        set({ statusMessage: "Save cancelled" });
+        return;
+      }
+      const oldPath = activePath;
+      const newName = result.name;
+      const newPath = `local/${newName}`;
+      const remapped = remapTabPath(
+        get().openTabs,
+        get().buffers,
+        get().dirty,
+        oldPath,
+        newPath,
+        content,
+        {
+          name: newName,
+          language: languageForFilename(newName),
+          unsaved: false,
+          fileHandle: result.handle,
+        }
+      );
+      set({
+        ...remapped,
+        activePath: newPath,
+        saveFileDialog: { ...get().saveFileDialog, open: false },
+        statusMessage:
+          result.method === "picker"
+            ? `Saved ${newName}`
+            : `Downloaded ${newName}`,
+      });
+      if (oldPath !== newPath) editorLayout().remapPath(oldPath, newPath);
+      else editorLayout().openInFocusedGroup(newPath);
     } catch (err) {
       set({
         statusMessage: `Save failed: ${(err as Error).message}`,

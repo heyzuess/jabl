@@ -34,6 +34,10 @@ import {
 } from "@/lib/workspace/fs-access";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { useLayoutStore } from "@/lib/workspace/layout-store";
+import {
+  MAX_EDITOR_GROUPS,
+  useEditorLayoutStore,
+} from "@/lib/workspace/editor-layout-store";
 import type { ThemeMode } from "@/lib/theme/themes";
 
 type TitleBarProps = {
@@ -85,6 +89,15 @@ export function TitleBar({
   const setPanelPosition = useLayoutStore((s) => s.setPanelPosition);
   const restoreLayout = useLayoutStore((s) => s.restoreLayout);
   const maximized = useLayoutStore((s) => s.maximized);
+  const splitFocused = useEditorLayoutStore((s) => s.splitFocused);
+  const editorLeafCount = useEditorLayoutStore((s) => {
+    const countLeaves = (node: typeof s.root): number =>
+      node.type === "leaf"
+        ? 1
+        : node.children.reduce((n, c) => n + countLeaves(c), 0);
+    return countLeaves(s.root);
+  });
+  const canSplitEditor = editorLeafCount < MAX_EDITOR_GROUPS;
 
   useEffect(() => {
     const folderInput = folderInputRef.current;
@@ -215,6 +228,22 @@ export function TitleBar({
               >
                 Terminal
               </DropdownMenuCheckboxItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Editor</DropdownMenuLabel>
+              <DropdownMenuItem
+                disabled={!canSplitEditor}
+                onClick={() => splitFocused("right")}
+              >
+                Split Right
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!canSplitEditor}
+                onClick={() => splitFocused("down")}
+              >
+                Split Down
+              </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
