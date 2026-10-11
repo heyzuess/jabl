@@ -318,3 +318,121 @@ function findNodeByRelPath(root: FileNode, path: string): FileNode | null {
   }
   return null;
 }
+
+/** Resolve a directory node handle under the workspace root. */
+export function resolveDirectoryHandle(
+  root: FileNode | null,
+  dirPath: string
+): FileSystemDirectoryHandle | null {
+  if (!root) return null;
+  const normalized = normalizePath(dirPath, root.name);
+  const node = findNode(root, normalized);
+  if (!node || node.kind !== "directory") return null;
+  return (node.handle as FileSystemDirectoryHandle | undefined) ?? null;
+}
+
+/** Create/overwrite a file under a directory handle and return the file handle. */
+export async function writeFileInDirectory(
+  dirHandle: FileSystemDirectoryHandle,
+  name: string,
+  contents: string
+): Promise<FileSystemFileHandle> {
+  const fileHandle = await dirHandle.getFileHandle(name, { create: true });
+  await writeFileHandle(fileHandle, contents);
+  return fileHandle;
+}
+
+function sortChildren(children: FileNode[]): void {
+  children.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === "directory" ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
+}
+
+/** Insert or replace a file node in the in-memory tree (immutable). */
+export function insertOrReplaceFileNode(
+  root: FileNode,
+  filePath: string,
+  fileNode: FileNode
+): FileNode {
+  const parts = filePath.split("/");
+  if (parts.length < 2) {
+    // File at root level named same as root — treat as child of root
+    const children = [...(root.children || [])];
+    const idx = children.findIndex((c) => c.path === filePath);
+    if (idx >= 0) children[idx] = fileNode;
+    else children.push(fileNode);
+    sortChildren(children);
+    return { ...root, children };
+  }
+
+  const cloneDir = (node: FileNode, depth: number): FileNode => {
+    const expectedPath = parts.slice(0, depth + 1).join("/");
+    if (node.path !== expectedPath && !(depth === 0 && node.path === parts[0])) {
+      return node;
+    }
+    if (depth === parts.length - 2) {
+      // Parent directory of the file
+      const children = [...(node.children || [])];
+      const idx = children.findIndex((c) => c.path === filePath);
+      if (idx >= 0) children[idx] = fileNode;
+      else children.push(fileNode);
+      sortChildren(children);
+      return { ...node, children };
+    }
+    const nextName = parts[depth + 1];
+    const nextPath = parts.slice(0, depth + 2).join("/");
+    const children = [...(node.children || [])];
+    const childIdx = children.findIndex(
+      (c) => c.kind === "directory" && (c.path === nextPath || c.name === nextName)
+    );
+    if (childIdx < 0) {
+      // Missing intermediate dir — create placeholder without handle
+      const newDir: FileNode = {
+        name: nextName,
+        path: nextPath,
+        kind: "directory",
+        children: [],
+      };
+      children.push(cloneDir(newDir, depth + 1));
+      sortChildren(children);
+      return { ...node, children };
+    }
+    children[childIdx] = cloneDir(children[childIdx], depth + 1);
+    return { ...node, children };
+  };
+
+  return cloneDir(root, 0);
+}
+
+/** Collect all directory paths under root (including root). */
+export function listDirectoryPaths(root: FileNode | null): string[] {
+  if (!root) return [];
+  const out: string[] = [];
+  const walk = (node: FileNode) => {
+    if (node.kind === "directory") {
+      out.push(node.path);
+      node.children?.forEach(walk);
+    }
+  };
+  walk(root);
+  return out;
+}
+
+export function isUntitledPath(path: string): boolean {
+  return path.startsWith("untitled/");
+}
+
+export function isLocalPath(path: string): boolean {
+  return path.startsWith("local/");
+}
+
+/** True when the tab is not part of the current workspace tree. */
+export function isOutsideWorkspacePath(
+  path: string,
+  rootName: string
+): boolean {
+  if (isUntitledPath(path) || isLocalPath(path)) return true;
+  if (!rootName) return true;
+  return path !== rootName && !path.startsWith(`${rootName}/`);
+}
