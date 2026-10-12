@@ -66,12 +66,16 @@ function ChangeRow({
   onAction,
   onOpenDiff,
   onOpenFile,
+  onDiscard,
+  onIgnore,
 }: {
   change: GitChange;
   actionLabel: string;
   onAction: () => void;
   onOpenDiff: () => void;
   onOpenFile: () => void;
+  onDiscard?: () => void;
+  onIgnore?: () => void;
 }) {
   return (
     <div className="group flex items-center gap-0.5 rounded-sm px-1 py-0.5 text-xs hover:bg-accent/60">
@@ -98,6 +102,37 @@ function ChangeRow({
       >
         <FileCode2 className="size-3" />
       </button>
+      {(onDiscard || onIgnore) && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                title="More actions"
+                aria-label="More actions"
+                className="inline-flex size-5 shrink-0 items-center justify-center rounded opacity-0 hover:bg-accent group-hover:opacity-100 focus-visible:opacity-100"
+              />
+            }
+          >
+            <MoreHorizontal className="size-3" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-40">
+            {onDiscard ? (
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={onDiscard}
+              >
+                Discard Changes…
+              </DropdownMenuItem>
+            ) : null}
+            {onIgnore ? (
+              <DropdownMenuItem onClick={onIgnore}>
+                Add to .gitignore
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       <button
         type="button"
         title={actionLabel}
@@ -173,28 +208,88 @@ function ConflictRow({
   );
 }
 
+const SCM_COLLAPSE_KEY = "jabl.scm.collapsedSections";
+
+function loadCollapsedSections(): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(SCM_COLLAPSE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === "boolean") out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function persistCollapsedSections(map: Record<string, boolean>) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SCM_COLLAPSE_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore */
+  }
+}
+
 function Section({
+  id,
   title,
   count,
   actions,
   children,
+  hideWhenEmpty = true,
+  defaultOpen = true,
+  titleExtra,
+  collapsedMap,
+  onToggle,
 }: {
+  /** Stable id for persisted collapse state */
+  id: string;
   title: string;
-  count: number;
+  count?: number;
   actions?: ReactNode;
   children: ReactNode;
+  /** When true (default), render nothing if count === 0 */
+  hideWhenEmpty?: boolean;
+  defaultOpen?: boolean;
+  titleExtra?: ReactNode;
+  collapsedMap: Record<string, boolean>;
+  onToggle: (id: string) => void;
 }) {
-  if (count === 0) return null;
+  const collapsed =
+    collapsedMap[id] !== undefined ? collapsedMap[id]! : !defaultOpen;
+
+  if (hideWhenEmpty && (count ?? 0) === 0) return null;
+
   return (
     <div className="mb-3">
       <div className="flex items-center gap-1 px-2 pb-1">
-        <p className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {title}
-          <span className="ml-1 opacity-70">{count}</span>
-        </p>
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-0.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+          onClick={() => onToggle(id)}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? (
+            <ChevronRight className="size-3 shrink-0 opacity-70" />
+          ) : (
+            <ChevronDown className="size-3 shrink-0 opacity-70" />
+          )}
+          <span className="truncate">
+            {title}
+            {count != null ? (
+              <span className="ml-1 opacity-70">{count}</span>
+            ) : null}
+          </span>
+          {titleExtra}
+        </button>
         {actions}
       </div>
-      <div className="px-1">{children}</div>
+      {!collapsed ? <div className="px-1">{children}</div> : null}
     </div>
   );
 }
@@ -464,6 +559,10 @@ export function SourceControlPane() {
   const publishBranch = useGitStore((s) => s.publishBranch);
   const syncRemote = useGitStore((s) => s.syncRemote);
   const cloneRepository = useGitStore((s) => s.cloneRepository);
+  const discardChanges = useGitStore((s) => s.discardChanges);
+  const addToGitignore = useGitStore((s) => s.addToGitignore);
+  const undoLastCommit = useGitStore((s) => s.undoLastCommit);
+  const commitGraph = useGitStore((s) => s.commitGraph);
 
   const canInitialize =
     !available && fsMode === "fs-access" && hasFsRoot && !busy;
@@ -485,6 +584,17 @@ export function SourceControlPane() {
   const [authUser, setAuthUser] = useState("");
   const [authToken, setAuthToken] = useState("");
   const [authRemember, setAuthRemember] = useState(true);
+  const [amend, setAmend] = useState(false);
+  const [showGraph, setShowGraph] = useState(true);
+  const [collapsedMap, setCollapsedMap] = useState(loadCollapsedSections);
+  const toggleSection = (id: string) => {
+    setCollapsedMap((prev) => {
+      const isCollapsed = prev[id] === true;
+      const next = { ...prev, [id]: !isCollapsed };
+      persistCollapsedSections(next);
+      return next;
+    });
+  };
 
   useEffect(() => {
     void refresh();
@@ -498,14 +608,16 @@ export function SourceControlPane() {
     }
   }, [authPrompt]);
 
+  const hasSomethingToCommit =
+    staged.length > 0 || unstaged.length > 0 || untracked.length > 0;
+
   const canCommit =
     available &&
     (merging
       ? conflicts.length === 0 &&
         authorName.trim().length > 0 &&
         authorEmail.trim().length > 0
-      : staged.length > 0 &&
-        commitMessage.trim().length > 0 &&
+      : (amend || (hasSomethingToCommit && commitMessage.trim().length > 0)) &&
         authorName.trim().length > 0 &&
         authorEmail.trim().length > 0) &&
     !busy;
@@ -963,7 +1075,7 @@ export function SourceControlPane() {
               )}
             </div>
 
-            {error && (
+            {error && available && (
               <p className="px-1 text-xs text-destructive">{error}</p>
             )}
 
@@ -1127,19 +1239,64 @@ export function SourceControlPane() {
                       />
                     </div>
                   )}
+                  {!merging && (
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                      <label className="inline-flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={amend}
+                          onChange={(e) => setAmend(e.target.checked)}
+                        />
+                        Amend
+                      </label>
+                      <button
+                        type="button"
+                        className="hover:text-foreground"
+                        disabled={busy || commits.length === 0}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              "Undo last commit (soft reset)? Changes stay staged."
+                            )
+                          ) {
+                            return;
+                          }
+                          void undoLastCommit().catch(() => undefined);
+                        }}
+                      >
+                        Undo Last Commit
+                      </button>
+                    </div>
+                  )}
                   <Button
                     type="button"
                     size="sm"
                     className="h-7 w-full gap-1 text-xs"
                     disabled={!canCommit}
-                    onClick={() => void commit().catch(() => undefined)}
+                    onClick={() =>
+                      void commit(undefined, { amend })
+                        .then(() => setAmend(false))
+                        .catch(() => undefined)
+                    }
                   >
                     <Check className="size-3.5" />
-                    {merging ? "Commit Merge" : "Commit"}
+                    {merging
+                      ? "Commit Merge"
+                      : amend
+                        ? "Amend Commit"
+                        : staged.length === 0 && hasSomethingToCommit
+                          ? "Commit All"
+                          : "Commit"}
                   </Button>
                 </div>
 
-                <Section title="Merge Conflicts" count={conflicts.length}>
+                <Section
+                  id="conflicts"
+                  title="Merge Conflicts"
+                  count={conflicts.length}
+                  collapsedMap={collapsedMap}
+                  onToggle={toggleSection}
+                >
                   {conflicts.map((c) => (
                     <ConflictRow
                       key={`c-${c.filepath}`}
@@ -1155,8 +1312,11 @@ export function SourceControlPane() {
                 </Section>
 
                 <Section
+                  id="staged"
                   title="Staged"
                   count={staged.length}
+                  collapsedMap={collapsedMap}
+                  onToggle={toggleSection}
                   actions={
                     <button
                       type="button"
@@ -1181,8 +1341,11 @@ export function SourceControlPane() {
                 </Section>
 
                 <Section
+                  id="changes"
                   title="Changes"
                   count={unstaged.length}
+                  collapsedMap={collapsedMap}
+                  onToggle={toggleSection}
                   actions={
                     <button
                       type="button"
@@ -1202,13 +1365,28 @@ export function SourceControlPane() {
                       onAction={() => void stage([c.filepath])}
                       onOpenDiff={() => void openWorkingDiff(c.filepath)}
                       onOpenFile={() => void openFile(c.workspacePath)}
+                      onDiscard={() => {
+                        if (
+                          !window.confirm(
+                            `Discard changes to "${c.filepath}"? This cannot be undone.`
+                          )
+                        ) {
+                          return;
+                        }
+                        void discardChanges([c.filepath]).catch(
+                          () => undefined
+                        );
+                      }}
                     />
                   ))}
                 </Section>
 
                 <Section
+                  id="untracked"
                   title="Untracked"
                   count={untracked.length}
+                  collapsedMap={collapsedMap}
+                  onToggle={toggleSection}
                   actions={
                     untracked.length > 0 ? (
                       <button
@@ -1232,6 +1410,21 @@ export function SourceControlPane() {
                       onAction={() => void stage([c.filepath])}
                       onOpenDiff={() => void openWorkingDiff(c.filepath)}
                       onOpenFile={() => void openFile(c.workspacePath)}
+                      onDiscard={() => {
+                        if (
+                          !window.confirm(
+                            `Delete untracked file "${c.filepath}"? This cannot be undone.`
+                          )
+                        ) {
+                          return;
+                        }
+                        void discardChanges([c.filepath], {
+                          untracked: true,
+                        }).catch(() => undefined);
+                      }}
+                      onIgnore={() =>
+                        void addToGitignore(c.filepath).catch(() => undefined)
+                      }
                     />
                   ))}
                 </Section>
@@ -1246,14 +1439,15 @@ export function SourceControlPane() {
                     </p>
                   )}
 
-                <div className="mb-2">
-                  <div className="flex items-center gap-1 px-2 pb-1">
-                    <p className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Stash
-                      <span className="ml-1 opacity-70">{stashes.length}</span>
-                    </p>
-                  </div>
-                  <div className="space-y-1 px-1">
+                <Section
+                  id="stash"
+                  title="Stash"
+                  count={stashes.length}
+                  hideWhenEmpty={false}
+                  collapsedMap={collapsedMap}
+                  onToggle={toggleSection}
+                >
+                  <div className="space-y-1">
                     <div className="flex gap-1">
                       <input
                         className="h-6 min-w-0 flex-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] outline-none focus-visible:border-[var(--ide-accent)]"
@@ -1357,27 +1551,29 @@ export function SourceControlPane() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </Section>
 
                 {(compareBaseOid || compareResult) && (
-                  <div className="mb-2">
-                    <div className="flex items-center justify-between gap-1 px-2 pb-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Compare
-                        {compareResult ? (
-                          <span className="ml-1 font-mono normal-case opacity-70">
-                            {compareResult.baseOid.slice(0, 7)} →{" "}
-                            {compareResult.headOid.slice(0, 7)}
-                            <span className="ml-1">
-                              {compareResult.files.length}
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="ml-1 font-mono normal-case opacity-70">
-                            {compareBaseOid!.slice(0, 7)} selected
-                          </span>
-                        )}
-                      </p>
+                  <Section
+                    id="compare"
+                    title="Compare"
+                    count={compareResult?.files.length}
+                    hideWhenEmpty={false}
+                    collapsedMap={collapsedMap}
+                    onToggle={toggleSection}
+                    titleExtra={
+                      compareResult ? (
+                        <span className="ml-1 font-mono normal-case opacity-70">
+                          {compareResult.baseOid.slice(0, 7)} →{" "}
+                          {compareResult.headOid.slice(0, 7)}
+                        </span>
+                      ) : (
+                        <span className="ml-1 font-mono normal-case opacity-70">
+                          {compareBaseOid!.slice(0, 7)} selected
+                        </span>
+                      )
+                    }
+                    actions={
                       <button
                         type="button"
                         className="text-[10px] text-muted-foreground hover:text-foreground"
@@ -1385,42 +1581,43 @@ export function SourceControlPane() {
                       >
                         Clear
                       </button>
-                    </div>
-                    <div className="px-1">
-                      {!compareResult ? (
-                        <p className="px-1 text-xs text-muted-foreground">
-                          Choose another commit → Compare with Selected
-                        </p>
-                      ) : compareResult.files.length === 0 ? (
-                        <p className="px-1 text-xs text-muted-foreground">
-                          No file differences between these commits.
-                        </p>
-                      ) : (
-                        compareResult.files.map((change) => (
-                          <CommitFileRow
-                            key={change.filepath}
-                            change={change}
-                            title={`${change.status} · ${compareResult.baseOid.slice(0, 7)} → ${compareResult.headOid.slice(0, 7)} · ${change.filepath}`}
-                            onOpen={() =>
-                              void openCompareDiff(
-                                change.filepath,
-                                compareResult.baseOid,
-                                compareResult.headOid
-                              )
-                            }
-                          />
-                        ))
-                      )}
-                    </div>
-                  </div>
+                    }
+                  >
+                    {!compareResult ? (
+                      <p className="px-1 text-xs text-muted-foreground">
+                        Choose another commit → Compare with Selected
+                      </p>
+                    ) : compareResult.files.length === 0 ? (
+                      <p className="px-1 text-xs text-muted-foreground">
+                        No file differences between these commits.
+                      </p>
+                    ) : (
+                      compareResult.files.map((change) => (
+                        <CommitFileRow
+                          key={change.filepath}
+                          change={change}
+                          title={`${change.status} · ${compareResult.baseOid.slice(0, 7)} → ${compareResult.headOid.slice(0, 7)} · ${change.filepath}`}
+                          onOpen={() =>
+                            void openCompareDiff(
+                              change.filepath,
+                              compareResult.baseOid,
+                              compareResult.headOid
+                            )
+                          }
+                        />
+                      ))
+                    )}
+                  </Section>
                 )}
 
-                <div className="mb-2">
-                  <div className="flex items-center justify-between gap-1 px-2 pb-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Remotes
-                      <span className="ml-1 opacity-70">{remotes.length}</span>
-                    </p>
+                <Section
+                  id="remotes"
+                  title="Remotes"
+                  count={remotes.length}
+                  hideWhenEmpty={false}
+                  collapsedMap={collapsedMap}
+                  onToggle={toggleSection}
+                  actions={
                     <button
                       type="button"
                       className="text-[10px] text-muted-foreground hover:text-foreground"
@@ -1432,8 +1629,9 @@ export function SourceControlPane() {
                     >
                       {addingRemote ? "Cancel" : "Add"}
                     </button>
-                  </div>
-                  <div className="space-y-1 px-1">
+                  }
+                >
+                  <div className="space-y-1">
                     {remotes.length === 0 && !addingRemote ? (
                       <p className="px-1 text-xs text-muted-foreground">
                         No remotes. Add an HTTPS origin to fetch/push.
@@ -1562,68 +1760,138 @@ export function SourceControlPane() {
                       </div>
                     )}
                   </div>
-                </div>
+                </Section>
 
-                <div className="mb-2">
-                  <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Commits
-                    <span className="ml-1 opacity-70">{commits.length}</span>
-                  </p>
-                  <div className="px-1">
-                    {commits.length === 0 ? (
-                      <p className="px-1 text-xs text-muted-foreground">
-                        No commits yet.
-                      </p>
-                    ) : (
-                      commits.map((c) => (
-                        <CommitRow
-                          key={c.oid}
-                          commit={c}
-                          expanded={expandedCommitOid === c.oid}
-                          files={commitFiles[c.oid] ?? []}
-                          selectedForCompare={compareBaseOid === c.oid}
-                          canCompareWithSelected={
-                            !!compareBaseOid && compareBaseOid !== c.oid
+                <Section
+                  id="commits"
+                  title="Commits"
+                  count={commits.length}
+                  hideWhenEmpty={false}
+                  collapsedMap={collapsedMap}
+                  onToggle={toggleSection}
+                  actions={
+                    <button
+                      type="button"
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowGraph((v) => !v)}
+                    >
+                      {showGraph ? "List" : "Graph"}
+                    </button>
+                  }
+                >
+                  {showGraph && commitGraph.commits.length > 0 && (
+                    <div className="mb-1 max-h-40 overflow-auto">
+                      <svg
+                        width="100%"
+                        height={commitGraph.commits.length * 18}
+                        className="block"
+                        role="img"
+                        aria-label="Commit graph"
+                      >
+                        {commitGraph.commits.map((c, row) => {
+                          const x = 8 + c.column * 10;
+                          const y = 9 + row * 18;
+                          return (
+                            <g key={`g-${c.oid}`}>
+                              {c.parents.map((p) => {
+                                const pi = commitGraph.commits.findIndex(
+                                  (x) => x.oid === p
+                                );
+                                if (pi < 0) return null;
+                                const px =
+                                  8 + commitGraph.commits[pi]!.column * 10;
+                                const py = 9 + pi * 18;
+                                return (
+                                  <line
+                                    key={`${c.oid}-${p}`}
+                                    x1={x}
+                                    y1={y}
+                                    x2={px}
+                                    y2={py}
+                                    stroke="currentColor"
+                                    className="text-muted-foreground/50"
+                                    strokeWidth={1}
+                                  />
+                                );
+                              })}
+                              <circle
+                                cx={x}
+                                cy={y}
+                                r={c.isHead ? 3.5 : 2.5}
+                                className={
+                                  c.isHead
+                                    ? "fill-[var(--ide-accent)]"
+                                    : c.isUpstream
+                                      ? "fill-sky-500"
+                                      : "fill-muted-foreground"
+                                }
+                              />
+                              <text
+                                x={8 + commitGraph.columns * 10 + 4}
+                                y={y + 3}
+                                className="fill-foreground font-mono text-[9px]"
+                              >
+                                {c.shortOid} {c.subject.slice(0, 28)}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </div>
+                  )}
+                  {commits.length === 0 ? (
+                    <p className="px-1 text-xs text-muted-foreground">
+                      No commits yet.
+                    </p>
+                  ) : (
+                    commits.map((c) => (
+                      <CommitRow
+                        key={c.oid}
+                        commit={c}
+                        expanded={expandedCommitOid === c.oid}
+                        files={commitFiles[c.oid] ?? []}
+                        selectedForCompare={compareBaseOid === c.oid}
+                        canCompareWithSelected={
+                          !!compareBaseOid && compareBaseOid !== c.oid
+                        }
+                        onToggle={() => void expandCommit(c.oid)}
+                        onOpenFile={(fp) =>
+                          void openCommitDiff(fp, c.oid, c.parentOid)
+                        }
+                        onRevert={() => {
+                          if (
+                            !window.confirm(
+                              `Revert commit ${c.shortOid}?\n\n${c.subject}`
+                            )
+                          ) {
+                            return;
                           }
-                          onToggle={() => void expandCommit(c.oid)}
-                          onOpenFile={(fp) =>
-                            void openCommitDiff(fp, c.oid, c.parentOid)
+                          void revertCommit(c.oid).catch(() => undefined);
+                        }}
+                        onCherryPick={() => {
+                          if (
+                            !window.confirm(
+                              `Cherry-pick ${c.shortOid} onto ${branch}?`
+                            )
+                          ) {
+                            return;
                           }
-                          onRevert={() => {
-                            if (
-                              !window.confirm(
-                                `Revert commit ${c.shortOid}?\n\n${c.subject}`
-                              )
-                            ) {
-                              return;
-                            }
-                            void revertCommit(c.oid).catch(() => undefined);
-                          }}
-                          onCherryPick={() => {
-                            if (
-                              !window.confirm(
-                                `Cherry-pick ${c.shortOid} onto ${branch}?`
-                              )
-                            ) {
-                              return;
-                            }
-                            void cherryPick(c.oid).catch(() => undefined);
-                          }}
-                          onReset={(mode) => confirmReset(c.oid, mode)}
-                          onCreateTag={() => {
-                            setTagObject(c.oid);
-                            setNewTagName("");
-                            setCreatingTag(true);
-                          }}
-                          onSelectForCompare={() => selectForCompare(c.oid)}
-                          onCompareWithSelected={() =>
-                            void compareWithSelected(c.oid)
-                          }
-                        />
-                      ))
-                    )}
-                  </div>
-                </div>
+                          void cherryPick(c.oid).catch(() => undefined);
+                        }}
+                        onReset={(mode) => confirmReset(c.oid, mode)}
+                        onCreateTag={() => {
+                          setTagObject(c.oid);
+                          setNewTagName("");
+                          setCreatingTag(true);
+                        }}
+                        onSelectForCompare={() => selectForCompare(c.oid)}
+                        onCompareWithSelected={() =>
+                          void compareWithSelected(c.oid)
+                        }
+                      />
+                    ))
+                  )}
+                </Section>
               </>
             )}
           </div>

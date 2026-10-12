@@ -13,7 +13,7 @@ A VS Code–like browser IDE for **OpenEdge ABL** built with Next.js, Monaco, an
 - **Sample project** — `public/samples/abl/` loads automatically so you can try the IDE immediately
 - **Themes** — dark default, light toggle, and a customization panel (persisted in `localStorage`)
 - **Terminal** — xterm.js over the virtual workspace only (no OS shell)
-- **Source Control** — browser git (`isomorphic-git`) for File System Access folders: initialize/clone, stage/unstage/commit (incl. hunk staging), Monaco diffs, history (compare/revert/cherry-pick/reset), stash, merge conflicts, local branches/tags, **HTTPS remotes** (fetch/pull/push/sync/publish, ahead/behind), Explorer decorations, and a terminal `git` subset. Author + optional PATs in `localStorage`; network ops need a **CORS proxy** (default `https://cors.isomorphic-git.org`) and HTTPS URLs (no SSH)
+- **Source Control** — browser git (`isomorphic-git`) for File System Access folders: initialize/clone, stage/unstage/commit (smart Commit All, amend, undo, discard, hunk staging), Monaco diffs (side/inline/WS/wrap), history + commit graph + compare/revert/cherry-pick/reset, file timeline & blame, stash, merge conflicts, `.gitignore` quick-add, local branches/tags, **HTTPS remotes** (fetch/pull/push/sync/publish, ahead/behind), Explorer decorations, and a terminal `git` subset. Author + optional PATs in `localStorage`; network ops need a **CORS proxy** (default `https://cors.isomorphic-git.org`) and HTTPS URLs (no SSH)
 
 ## Requirements
 

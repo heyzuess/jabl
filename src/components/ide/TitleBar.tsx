@@ -41,6 +41,7 @@ import {
   MAX_EDITOR_GROUPS,
   useEditorLayoutStore,
 } from "@/lib/workspace/editor-layout-store";
+import { useGitStore } from "@/lib/git/store";
 import { executeAbl } from "@/lib/oe/execute";
 import type { ThemeMode } from "@/lib/theme/themes";
 
@@ -80,6 +81,15 @@ export function TitleBar({
   const rootName = useWorkspaceStore((s) => s.rootName);
   const statusMessage = useWorkspaceStore((s) => s.statusMessage);
   const fsMode = useWorkspaceStore((s) => s.mode);
+  const gitAvailable = useGitStore((s) => s.available);
+  const gitBranch = useGitStore((s) => s.branch);
+  const aheadBehind = useGitStore((s) => s.aheadBehind);
+  const gitDirty =
+    useGitStore(
+      (s) =>
+        s.staged.length + s.unstaged.length + s.untracked.length + s.conflicts.length
+    ) > 0;
+  const setSidebarView = useLayoutStore((s) => s.setSidebarView);
   const canDebugAbl =
     !!activePath && languageIdForPath(activePath) === "abl";
   const canRunAbl = canDebugAbl;
@@ -460,6 +470,28 @@ export function TitleBar({
       </div>
 
       <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2">
+        {gitAvailable && (
+          <button
+            type="button"
+            title="Source Control"
+            className="hidden max-w-[200px] shrink items-center gap-1 truncate rounded-md px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground md:inline-flex"
+            onClick={() => {
+              useLayoutStore.getState().setSidebarVisible(true);
+              setSidebarView("scm");
+            }}
+          >
+            <GitBranch className="size-3 shrink-0" />
+            <span className="truncate">
+              {gitBranch ?? "HEAD"}
+              {gitDirty ? "*" : ""}
+            </span>
+            {aheadBehind.upstream ? (
+              <span className="shrink-0 text-[10px] opacity-80">
+                ↑{aheadBehind.ahead} ↓{aheadBehind.behind}
+              </span>
+            ) : null}
+          </button>
+        )}
         {(rootName || statusMessage) && (
           <span className="hidden min-w-0 truncate text-xs text-muted-foreground md:inline">
             {rootName}

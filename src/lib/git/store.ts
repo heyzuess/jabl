@@ -18,6 +18,8 @@ import type { ConflictResolveMode } from "./hunk-stage";
 import {
   abortMerge as abortMergeSvc,
   addRemote as addRemoteSvc,
+  addToGitignore as addToGitignoreSvc,
+  blameFile as blameFileSvc,
   checkoutBranch as checkoutBranchSvc,
   checkoutRef as checkoutRefSvc,
   cherryPickCommit as cherryPickSvc,
@@ -28,6 +30,7 @@ import {
   createTag as createTagSvc,
   deleteLocalBranch as deleteBranchSvc,
   deleteLocalTag as deleteTagSvc,
+  discardWorkingPaths as discardWorkingPathsSvc,
   fetchRemote as fetchRemoteSvc,
   getAheadBehind as getAheadBehindSvc,
   getCommitFileDiff,
@@ -40,7 +43,9 @@ import {
   listLocalTags,
   listRemotes as listRemotesSvc,
   listStash,
+  loadCommitGraph as loadCommitGraphSvc,
   loadCommitLog,
+  loadFileCommitLog as loadFileCommitLogSvc,
   loadGitStatus,
   mergeBranch as mergeBranchSvc,
   publishBranch as publishBranchSvc,
@@ -59,9 +64,12 @@ import {
   stashPop as stashPopSvc,
   stashPush as stashPushSvc,
   syncWithRemote as syncWithRemoteSvc,
+  undoLastCommit as undoLastCommitSvc,
   unstageAll,
   unstageLineChanges as unstageLineChangesSvc,
   unstagePaths,
+  type BlameLine,
+  type CommitGraphModel,
   type GitContext,
 } from "./git-service";
 import { clearAllStoredCredentials } from "./credentials";
@@ -69,6 +77,11 @@ import {
   setAuthPromptHandler,
   type AuthPromptResult,
 } from "./http";
+import {
+  loadDiffOptions,
+  saveDiffOptions,
+  type GitDiffOptions,
+} from "./diff-options";
 
 const AUTHOR_KEY = "jabl-git-author";
 
@@ -163,7 +176,6 @@ type GitState = GitStatusSnapshot & {
   unstage: (filepaths: string[]) => Promise<void>;
   stageAllChanges: () => Promise<void>;
   unstageAllChanges: () => Promise<void>;
-  commit: (message?: string) => Promise<string>;
   reset: () => void;
   loadHistory: () => Promise<void>;
   expandCommit: (oid: string | null) => Promise<void>;
@@ -208,6 +220,25 @@ type GitState = GitStatusSnapshot & {
   checkoutTag: (name: string) => Promise<void>;
   stageHunks: (filepath: string, changes: LineChange[]) => Promise<void>;
   unstageHunks: (filepath: string, changes: LineChange[]) => Promise<void>;
+  discardChanges: (
+    filepaths: string[],
+    opts?: { untracked?: boolean }
+  ) => Promise<void>;
+  addToGitignore: (pattern: string) => Promise<void>;
+  /** Smart commit: stage-all when nothing staged (unless amend). */
+  commit: (message?: string, opts?: { amend?: boolean }) => Promise<string>;
+  undoLastCommit: () => Promise<void>;
+  diffOptions: GitDiffOptions;
+  setDiffOptions: (opts: Partial<GitDiffOptions>) => void;
+  fileTimeline: GitCommitInfo[];
+  loadFileTimeline: (filepath: string) => Promise<void>;
+  blameEnabled: boolean;
+  setBlameEnabled: (on: boolean) => void;
+  blameLines: BlameLine[];
+  blamePath: string | null;
+  loadBlame: (filepath: string) => Promise<void>;
+  commitGraph: CommitGraphModel;
+  loadCommitGraph: () => Promise<void>;
 };
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -256,6 +287,12 @@ export const useGitStore = create<GitState>((set, get) => {
     corsProxy: "",
     progress: null,
     authPrompt: null,
+    diffOptions: loadDiffOptions(),
+    fileTimeline: [],
+    blameEnabled: false,
+    blameLines: [],
+    blamePath: null,
+    commitGraph: { commits: [], columns: 1 },
 
     setAuthorName: (name) => {
       set({ authorName: name });
@@ -299,6 +336,10 @@ export const useGitStore = create<GitState>((set, get) => {
         aheadBehind: emptyAheadBehind,
         progress: null,
         authPrompt: null,
+        fileTimeline: [],
+        blameLines: [],
+        blamePath: null,
+        commitGraph: { commits: [], columns: 1 },
       }),
 
     refresh: async () => {
@@ -380,6 +421,9 @@ export const useGitStore = create<GitState>((set, get) => {
         corsProxy,
         busy: false,
       });
+      if (snap.available) {
+        void get().loadCommitGraph();
+      }
     },
 
     loadHistory: async () => {
@@ -502,7 +546,7 @@ export const useGitStore = create<GitState>((set, get) => {
       }
     },
 
-    commit: async (message) => {
+    commit: async (message, opts) => {
       const msg = (message ?? get().commitMessage).trim();
       set({ busy: true, error: null });
       try {
@@ -517,13 +561,151 @@ export const useGitStore = create<GitState>((set, get) => {
           await get().refresh();
           return sha;
         }
-        const sha = await commitStaged(ctxFromWorkspace(), msg, authorOf(get));
+        // Smart commit: nothing staged → confirm then stage all
+        if (!opts?.amend && get().staged.length === 0) {
+          const pending =
+            get().unstaged.length + get().untracked.length;
+          if (pending === 0) throw new Error("Nothing to commit");
+          const ok = window.confirm(
+            `No staged changes. Stage all ${pending} file(s) and commit?`
+          );
+          if (!ok) {
+            set({ busy: false });
+            throw new Error("Commit cancelled");
+          }
+          await stageAll(ctxFromWorkspace());
+          await get().refresh();
+        }
+        if (opts?.amend) {
+          const ab = get().aheadBehind;
+          if (ab.upstream && ab.ahead === 0) {
+            const ok = window.confirm(
+              "Amend will rewrite a commit that may already be on the remote. Continue?"
+            );
+            if (!ok) {
+              set({ busy: false });
+              throw new Error("Amend cancelled");
+            }
+          }
+        }
+        const sha = await commitStaged(
+          ctxFromWorkspace(),
+          msg,
+          authorOf(get),
+          { amend: !!opts?.amend }
+        );
         set({ commitMessage: "" });
         await get().refresh();
+        void get().loadCommitGraph();
         return sha;
       } catch (err) {
         set({ busy: false, error: (err as Error).message });
         throw err;
+      }
+    },
+
+    undoLastCommit: async () => {
+      set({ busy: true, error: null });
+      try {
+        await undoLastCommitSvc(ctxFromWorkspace());
+        await get().refresh();
+        void get().loadCommitGraph();
+        useWorkspaceStore.getState().setStatus("Undid last commit (soft)");
+      } catch (err) {
+        set({ busy: false, error: (err as Error).message });
+        throw err;
+      }
+    },
+
+    discardChanges: async (filepaths, opts) => {
+      if (!filepaths.length) return;
+      set({ busy: true, error: null });
+      try {
+        await discardWorkingPathsSvc(ctxFromWorkspace(), filepaths, opts);
+        // Clear dirty buffers for discarded workspace paths
+        const rootName = useWorkspaceStore.getState().rootName;
+        const ws = useWorkspaceStore.getState();
+        for (const fp of filepaths) {
+          const wp = rootName ? `${rootName}/${fp}` : fp;
+          if (ws.buffers[wp] != null) {
+            // reload from disk via clearing dirty and buffer; refresh tree later
+            useWorkspaceStore.setState((s) => {
+              const dirty = { ...s.dirty };
+              delete dirty[wp];
+              return { dirty };
+            });
+          }
+        }
+        await reloadTreeAfterCheckout();
+        await get().refresh();
+        useWorkspaceStore.getState().setStatus("Discarded changes");
+      } catch (err) {
+        set({ busy: false, error: (err as Error).message });
+        throw err;
+      }
+    },
+
+    addToGitignore: async (pattern) => {
+      set({ busy: true, error: null });
+      try {
+        await addToGitignoreSvc(ctxFromWorkspace(), pattern);
+        await get().refresh();
+        useWorkspaceStore
+          .getState()
+          .setStatus(`Added to .gitignore: ${pattern}`);
+      } catch (err) {
+        set({ busy: false, error: (err as Error).message });
+        throw err;
+      }
+    },
+
+    setDiffOptions: (partial) => {
+      const next = { ...get().diffOptions, ...partial };
+      saveDiffOptions(next);
+      set({ diffOptions: next });
+    },
+
+    loadFileTimeline: async (filepath) => {
+      try {
+        const rel = filepath.includes("/")
+          ? filepath.replace(new RegExp(`^${useWorkspaceStore.getState().rootName}/`), "")
+          : filepath;
+        const fileTimeline = await loadFileCommitLogSvc(
+          ctxFromWorkspace(),
+          rel,
+          40
+        );
+        set({ fileTimeline });
+      } catch (err) {
+        set({ fileTimeline: [], error: (err as Error).message });
+      }
+    },
+
+    setBlameEnabled: (on) => set({ blameEnabled: on }),
+
+    loadBlame: async (filepath) => {
+      try {
+        const rootName = useWorkspaceStore.getState().rootName;
+        const rel = filepath.startsWith(`${rootName}/`)
+          ? filepath.slice(rootName.length + 1)
+          : filepath;
+        const blameLines = await blameFileSvc(ctxFromWorkspace(), rel, 40);
+        set({ blameLines, blamePath: filepath });
+      } catch (err) {
+        set({
+          blameLines: [],
+          blamePath: filepath,
+          error: (err as Error).message,
+        });
+      }
+    },
+
+    loadCommitGraph: async () => {
+      try {
+        const commitGraph = await loadCommitGraphSvc(ctxFromWorkspace(), 50);
+        set({ commitGraph });
+      } catch (err) {
+        console.warn("[git] loadCommitGraph failed", err);
       }
     },
 

@@ -60,6 +60,8 @@ import {
   type ProgressFn,
 } from "./http";
 import { getAppCorsProxy, setAppCorsProxy } from "./credentials";
+import { blameLinesFromHistory, type BlameLine } from "./blame";
+import { buildCommitGraph, type CommitGraphModel } from "./graph";
 import type {
   GitAheadBehind,
   GitAuthor,
@@ -74,6 +76,8 @@ import type {
   GitStatusSnapshot,
   GitUpstreamInfo,
 } from "./types";
+
+export type { BlameLine, CommitGraphModel };
 
 const DIR = "/";
 
@@ -356,27 +360,101 @@ export async function unstageAll(ctx: GitContext): Promise<number> {
 export async function commitStaged(
   ctx: GitContext,
   message: string,
-  author: GitAuthor
+  author: GitAuthor,
+  opts?: { amend?: boolean }
 ): Promise<string> {
   const msg = message.trim();
-  if (!msg) throw new Error("Commit message is required");
+  if (!msg && !opts?.amend) throw new Error("Commit message is required");
   if (!author.name.trim() || !author.email.trim()) {
     throw new Error("Author name and email are required");
   }
   const { fs } = buildFs(ctx);
   const snap = await loadGitStatus(ctx);
-  if (!snap.staged.length) throw new Error("Nothing staged to commit");
+  if (!opts?.amend && !snap.staged.length) {
+    throw new Error("Nothing staged to commit");
+  }
 
   const sha = await gitCommit({
     fs,
     dir: DIR,
-    message: msg,
+    message: msg || undefined,
+    amend: !!opts?.amend,
     author: {
       name: author.name.trim(),
       email: author.email.trim(),
     },
   });
   return sha;
+}
+
+/** Soft-reset HEAD to its first parent (undo last commit, keep changes staged). */
+export async function undoLastCommit(ctx: GitContext): Promise<string> {
+  const { fs } = buildFs(ctx);
+  const head = await resolveRef({ fs, dir: DIR, ref: "HEAD" });
+  const { commit } = await readCommit({ fs, dir: DIR, oid: head });
+  const parent = commit.parent[0];
+  if (!parent) throw new Error("Cannot undo: no parent commit");
+  await resetToCommit(ctx, parent, "soft");
+  return parent;
+}
+
+/**
+ * Discard unstaged worktree changes for paths (restore from HEAD).
+ * Untracked files are deleted from disk.
+ */
+export async function discardWorkingPaths(
+  ctx: GitContext,
+  filepaths: string[],
+  opts?: { untracked?: boolean }
+): Promise<void> {
+  const { fs } = buildFs(ctx);
+  const tracked: string[] = [];
+  for (const filepath of filepaths) {
+    const rel = filepath.replace(/^\/+/, "");
+    if (!rel) continue;
+    if (opts?.untracked) {
+      try {
+        await fs.promises.unlink(`/${rel}`);
+      } catch {
+        /* already gone */
+      }
+      continue;
+    }
+    tracked.push(rel);
+  }
+  if (tracked.length) {
+    await gitCheckout({
+      fs,
+      dir: DIR,
+      ref: "HEAD",
+      filepaths: tracked,
+      force: true,
+    });
+  }
+}
+
+/** Append a path pattern to `.gitignore` (create file if missing). */
+export async function addToGitignore(
+  ctx: GitContext,
+  pattern: string
+): Promise<void> {
+  const trimmed = pattern.trim().replace(/^\/+/, "");
+  if (!trimmed) throw new Error("Ignore pattern is required");
+  const { fs } = buildFs(ctx);
+  let existing = "";
+  try {
+    const raw = await fs.promises.readFile("/.gitignore", { encoding: "utf8" });
+    existing = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
+  } catch {
+    existing = "";
+  }
+  const lines = existing.split(/\r?\n/);
+  if (lines.some((l) => l.trim() === trimmed)) return;
+  const next =
+    existing && !existing.endsWith("\n")
+      ? `${existing}\n${trimmed}\n`
+      : `${existing}${trimmed}\n`;
+  await fs.promises.writeFile("/.gitignore", next);
 }
 
 export async function getCurrentBranch(ctx: GitContext): Promise<string | null> {
@@ -602,6 +680,28 @@ export async function listCommitFiles(
   return files.sort((a, b) => a.filepath.localeCompare(b.filepath));
 }
 
+function mapLogEntry(c: {
+  oid: string;
+  commit: {
+    message: string;
+    author: { name: string; email: string; timestamp: number };
+    parent: string[];
+  };
+}): GitCommitInfo {
+  const message = c.commit.message || "";
+  const subject = message.split("\n")[0] || "(no message)";
+  return {
+    oid: c.oid,
+    shortOid: c.oid.slice(0, 7),
+    message,
+    subject,
+    authorName: c.commit.author.name,
+    authorEmail: c.commit.author.email,
+    authorDate: c.commit.author.timestamp * 1000,
+    parentOid: c.commit.parent[0] ?? null,
+  };
+}
+
 export async function loadCommitLog(
   ctx: GitContext,
   depth = 50
@@ -609,20 +709,103 @@ export async function loadCommitLog(
   if (!(await probeGitRepo(ctx))) return [];
   const { fs } = buildFs(ctx);
   const commits = await gitLog({ fs, dir: DIR, depth });
-  return commits.map((c) => {
-    const message = c.commit.message || "";
-    const subject = message.split("\n")[0] || "(no message)";
-    return {
-      oid: c.oid,
-      shortOid: c.oid.slice(0, 7),
-      message,
-      subject,
-      authorName: c.commit.author.name,
-      authorEmail: c.commit.author.email,
-      authorDate: c.commit.author.timestamp * 1000,
-      parentOid: c.commit.parent[0] ?? null,
-    };
-  });
+  return commits.map(mapLogEntry);
+}
+
+export async function loadFileCommitLog(
+  ctx: GitContext,
+  filepath: string,
+  depth = 40
+): Promise<GitCommitInfo[]> {
+  if (!(await probeGitRepo(ctx))) return [];
+  const rel = filepath.replace(/^\/+/, "");
+  if (!rel) return [];
+  const { fs } = buildFs(ctx);
+  try {
+    const commits = await gitLog({
+      fs,
+      dir: DIR,
+      filepath: rel,
+      depth,
+      force: true,
+      follow: true,
+    });
+    return commits.map(mapLogEntry);
+  } catch {
+    return [];
+  }
+}
+
+export async function blameFile(
+  ctx: GitContext,
+  filepath: string,
+  depth = 40
+): Promise<BlameLine[]> {
+  const rel = filepath.replace(/^\/+/, "");
+  if (!rel) return [];
+  const { fs } = buildFs(ctx);
+  // Prefer disk content (not dirty overlay) for stable blame
+  let currentText = "";
+  try {
+    const raw = await fs.promises.readFile(`/${rel}`, { encoding: "utf8" });
+    currentText =
+      typeof raw === "string" ? raw : new TextDecoder().decode(raw);
+  } catch {
+    currentText = await readFileAtRef(ctx, rel, "HEAD");
+  }
+
+  const historyLog = await loadFileCommitLog(ctx, rel, depth);
+  const history: Array<{
+    commit: GitCommitInfo;
+    textAtCommit: string;
+    textAtParent: string;
+  }> = [];
+  for (const commit of historyLog) {
+    const [textAtCommit, textAtParent] = await Promise.all([
+      readFileAtRef(ctx, rel, commit.oid),
+      commit.parentOid
+        ? readFileAtRef(ctx, rel, commit.parentOid)
+        : Promise.resolve(""),
+    ]);
+    history.push({ commit, textAtCommit, textAtParent });
+  }
+  return blameLinesFromHistory(currentText, history);
+}
+
+export async function loadCommitGraph(
+  ctx: GitContext,
+  depth = 50
+): Promise<CommitGraphModel> {
+  if (!(await probeGitRepo(ctx))) {
+    return { commits: [], columns: 1 };
+  }
+  const { fs } = buildFs(ctx);
+  const raw = await gitLog({ fs, dir: DIR, depth });
+  const commits = raw.map(mapLogEntry);
+  const parentMap: Record<string, string[]> = {};
+  for (const c of raw) {
+    parentMap[c.oid] = [...c.commit.parent];
+  }
+  let headOid: string | null = null;
+  try {
+    headOid = await resolveRef({ fs, dir: DIR, ref: "HEAD" });
+  } catch {
+    headOid = null;
+  }
+  let upstreamOid: string | null = null;
+  try {
+    const upstream = await getUpstreamInfo(ctx);
+    if (upstream) {
+      upstreamOid = await resolveRef({
+        fs,
+        dir: DIR,
+        ref: upstream.trackingRef,
+      });
+    }
+  } catch {
+    upstreamOid = null;
+  }
+  return buildCommitGraph(commits, parentMap, { headOid, upstreamOid });
 }
 
 /**

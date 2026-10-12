@@ -79,6 +79,15 @@ export function EditorPane({
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const [edgeHint, setEdgeHint] = useState<"right" | "down" | null>(null);
 
+  const gitAvailable = useGitStore((s) => s.available);
+  const blameEnabled = useGitStore((s) => s.blameEnabled);
+  const setBlameEnabled = useGitStore((s) => s.setBlameEnabled);
+  const blameLines = useGitStore((s) => s.blameLines);
+  const blamePath = useGitStore((s) => s.blamePath);
+  const loadBlame = useGitStore((s) => s.loadBlame);
+  const openCommitDiff = useGitStore((s) => s.openCommitDiff);
+  const blameDecorationsRef = useRef<string[]>([]);
+
   const activePath = group?.activePath ?? null;
   const isFocused = focusedGroupId === groupId;
 
@@ -91,6 +100,53 @@ export function EditorPane({
 
   const activeTab = groupTabs.find((t) => t.path === activePath);
   const value = activePath ? (buffers[activePath] ?? "") : "";
+  const canBlame =
+    gitAvailable &&
+    !!activeTab &&
+    activeTab.view?.type !== "diff" &&
+    !activeTab.unsaved;
+
+  useEffect(() => {
+    if (!blameEnabled || !canBlame || !activePath || !isFocused) return;
+    void loadBlame(activePath);
+  }, [blameEnabled, canBlame, activePath, isFocused, loadBlame, value]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+    if (
+      !blameEnabled ||
+      !activePath ||
+      blamePath !== activePath ||
+      !blameLines.length
+    ) {
+      blameDecorationsRef.current = editor.deltaDecorations(
+        blameDecorationsRef.current,
+        []
+      );
+      return;
+    }
+    const decos = blameLines.map((b) => ({
+      range: new monaco.Range(b.line, 1, b.line, 1),
+      options: {
+        isWholeLine: false,
+        glyphMarginClassName: "jabl-blame-glyph",
+        glyphMarginHoverMessage: {
+          value: `**${b.shortOid}** ${b.authorName} — ${b.subject}`,
+        },
+        linesDecorationsClassName: "jabl-blame-line",
+        overviewRuler: {
+          color: "rgba(128,128,128,0.35)",
+          position: monaco.editor.OverviewRulerLane.Left,
+        },
+      },
+    }));
+    blameDecorationsRef.current = editor.deltaDecorations(
+      blameDecorationsRef.current,
+      decos
+    );
+  }, [blameEnabled, blameLines, blamePath, activePath]);
 
   const applyMarkers = useCallback(
     (_path: string | null, source: string, language: string | undefined) => {
@@ -308,6 +364,44 @@ export function EditorPane({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-0.5 px-1 pb-1">
+          {canBlame && (
+            <button
+              type="button"
+              title="Toggle Git Blame"
+              aria-label="Toggle Git Blame"
+              aria-pressed={blameEnabled}
+              className={cn(
+                "inline-flex h-6 items-center rounded-md px-1.5 text-[10px] hover:bg-accent",
+                blameEnabled
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground"
+              )}
+              onClick={() => {
+                onFocusPane();
+                setBlameEnabled(!blameEnabled);
+              }}
+            >
+              Blame
+            </button>
+          )}
+          {blameEnabled && blamePath === activePath && blameLines[0]?.oid && (
+            <button
+              type="button"
+              title="Open diff for first blamed commit"
+              className="hidden max-w-[140px] truncate font-mono text-[9px] text-muted-foreground hover:text-foreground sm:inline"
+              onClick={() => {
+                const b = blameLines[0]!;
+                if (!b.oid || !activePath) return;
+                const rootName = useWorkspaceStore.getState().rootName;
+                const rel = activePath.startsWith(`${rootName}/`)
+                  ? activePath.slice(rootName.length + 1)
+                  : activePath;
+                void openCommitDiff(rel, b.oid, b.parentOid);
+              }}
+            >
+              {blameLines[0]?.shortOid}
+            </button>
+          )}
           <button
             type="button"
             title="Split Right"
@@ -380,6 +474,7 @@ export function EditorPane({
               padding: { top: 8 },
               renderLineHighlight: "line",
               smoothScrolling: true,
+              glyphMargin: blameEnabled,
               hover: {
                 enabled: "on",
                 delay: 400,
@@ -431,6 +526,8 @@ function GitDiffEditorPane({
   const stageHunks = useGitStore((s) => s.stageHunks);
   const unstageHunks = useGitStore((s) => s.unstageHunks);
   const gitBusy = useGitStore((s) => s.busy);
+  const diffOptions = useGitStore((s) => s.diffOptions);
+  const setDiffOptions = useGitStore((s) => s.setDiffOptions);
   const [original, setOriginal] = useState("");
   const [modified, setModified] = useState("");
   const [loading, setLoading] = useState(true);
@@ -545,36 +642,84 @@ function GitDiffEditorPane({
         <span>↔</span>
         <span className="truncate">{view.modifiedLabel}</span>
         <span className="truncate text-foreground/80">{view.filepath}</span>
-        {canStageHunks && (
-          <div className="ml-auto flex items-center gap-1">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-5 px-1.5 text-[10px]"
-              disabled={hunkBusy || gitBusy}
-              onClick={() => void runHunkAction(false)}
-            >
-              {view.mode === "working" ? "Stage Hunk" : "Unstage Hunk"}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-5 px-1.5 text-[10px]"
-              disabled={hunkBusy || gitBusy}
-              onClick={() => void runHunkAction(true)}
-            >
-              {view.mode === "working"
-                ? "Stage Selection"
-                : "Unstage Selection"}
-            </Button>
-          </div>
-        )}
+        <div className="ml-auto flex flex-wrap items-center gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-5 px-1.5 text-[10px]"
+            title="Side-by-side / inline"
+            onClick={() =>
+              setDiffOptions({
+                renderSideBySide: !diffOptions.renderSideBySide,
+              })
+            }
+          >
+            {diffOptions.renderSideBySide ? "Inline" : "Side"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className={cn(
+              "h-5 px-1.5 text-[10px]",
+              diffOptions.ignoreWhitespace && "text-foreground"
+            )}
+            title="Ignore whitespace"
+            onClick={() =>
+              setDiffOptions({
+                ignoreWhitespace: !diffOptions.ignoreWhitespace,
+              })
+            }
+          >
+            WS
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className={cn(
+              "h-5 px-1.5 text-[10px]",
+              diffOptions.wordWrap && "text-foreground"
+            )}
+            title="Word wrap"
+            onClick={() =>
+              setDiffOptions({ wordWrap: !diffOptions.wordWrap })
+            }
+          >
+            Wrap
+          </Button>
+          {canStageHunks && (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-5 px-1.5 text-[10px]"
+                disabled={hunkBusy || gitBusy}
+                onClick={() => void runHunkAction(false)}
+              >
+                {view.mode === "working" ? "Stage Hunk" : "Unstage Hunk"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-5 px-1.5 text-[10px]"
+                disabled={hunkBusy || gitBusy}
+                onClick={() => void runHunkAction(true)}
+              >
+                {view.mode === "working"
+                  ? "Stage Selection"
+                  : "Unstage Selection"}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
       <div className="min-h-0 flex-1">
         <DiffEditor
-          key={`${groupId}:${tab.path}`}
+          key={`${groupId}:${tab.path}:${diffOptions.renderSideBySide}:${diffOptions.ignoreWhitespace}:${diffOptions.wordWrap}`}
           original={original}
           modified={modified}
           language={tab.language}
@@ -602,8 +747,9 @@ function GitDiffEditorPane({
             automaticLayout: true,
             readOnly: !editable,
             originalEditable: false,
-            renderSideBySide: true,
-            wordWrap: "on",
+            renderSideBySide: diffOptions.renderSideBySide,
+            ignoreTrimWhitespace: diffOptions.ignoreWhitespace,
+            wordWrap: diffOptions.wordWrap ? "on" : "off",
             padding: { top: 8 },
           }}
           loading={

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Group,
   Panel,
@@ -26,6 +26,84 @@ import { useLayoutStore } from "@/lib/workspace/layout-store";
 import { useGitStore } from "@/lib/git/store";
 import type { FileNode, OpenTab } from "@/lib/workspace/types";
 import { PaneChrome } from "./PaneChrome";
+
+function relativeTime(ts: number): string {
+  const sec = Math.round((Date.now() - ts) / 1000);
+  if (sec < 60) return `${sec}s`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.round(min / 60);
+  if (hr < 48) return `${hr}h`;
+  return `${Math.round(hr / 24)}d`;
+}
+
+function FileTimelineSection() {
+  const activePath = useWorkspaceStore((s) => s.activePath);
+  const rootName = useWorkspaceStore((s) => s.rootName);
+  const available = useGitStore((s) => s.available);
+  const fileTimeline = useGitStore((s) => s.fileTimeline);
+  const loadFileTimeline = useGitStore((s) => s.loadFileTimeline);
+  const openCommitDiff = useGitStore((s) => s.openCommitDiff);
+
+  useEffect(() => {
+    if (!available || !activePath || isUntitledPath(activePath)) {
+      return;
+    }
+    if (activePath.startsWith("gitdiff:")) return;
+    void loadFileTimeline(activePath);
+  }, [available, activePath, loadFileTimeline]);
+
+  if (!available) return null;
+
+  const rel =
+    activePath && rootName && activePath.startsWith(`${rootName}/`)
+      ? activePath.slice(rootName.length + 1)
+      : activePath;
+
+  return (
+    <div className="mt-2 border-t border-border pt-2">
+      <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Timeline
+        {rel ? (
+          <span className="ml-1 font-mono normal-case opacity-70">
+            {rel.split("/").pop()}
+          </span>
+        ) : null}
+      </p>
+      {!activePath || isUntitledPath(activePath) ? (
+        <p className="px-2 text-[10px] text-muted-foreground">
+          Select a file to see history.
+        </p>
+      ) : fileTimeline.length === 0 ? (
+        <p className="px-2 text-[10px] text-muted-foreground">
+          No commits for this file.
+        </p>
+      ) : (
+        <div className="px-1">
+          {fileTimeline.map((c) => (
+            <button
+              key={c.oid}
+              type="button"
+              className="mb-0.5 block w-full rounded-sm px-1 py-0.5 text-left hover:bg-accent/60"
+              title={c.message}
+              onClick={() => {
+                if (!rel) return;
+                void openCommitDiff(rel, c.oid, c.parentOid);
+              }}
+            >
+              <span className="block truncate text-[11px] font-medium">
+                {c.subject}
+              </span>
+              <span className="block font-mono text-[9px] text-muted-foreground">
+                {c.shortOid} · {relativeTime(c.authorDate)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function gitDecorationForPath(
   path: string,
@@ -461,6 +539,7 @@ export function FileExplorer() {
                   No open or unsaved files
                 </p>
               )}
+              <FileTimelineSection />
             </div>
           </Panel>
         </Group>
