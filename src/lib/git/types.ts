@@ -65,3 +65,22 @@ export type GitStashEntry = {
 };
 
 export type GitResetMode = "soft" | "mixed" | "hard";
+
+export type GitRemoteInfo = {
+  remote: string;
+  url: string;
+};
+
+export type GitUpstreamInfo = {
+  remote: string;
+  /** Short branch name on the remote (e.g. main) */
+  remoteBranch: string;
+  /** Full remote-tracking ref, e.g. refs/remotes/origin/main */
+  trackingRef: string;
+};
+
+export type GitAheadBehind = {
+  ahead: number;
+  behind: number;
+  upstream: GitUpstreamInfo | null;
+};

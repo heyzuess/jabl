@@ -13,7 +13,7 @@ A VS Code–like browser IDE for **OpenEdge ABL** built with Next.js, Monaco, an
 - **Sample project** — `public/samples/abl/` loads automatically so you can try the IDE immediately
 - **Themes** — dark default, light toggle, and a customization panel (persisted in `localStorage`)
 - **Terminal** — xterm.js over the virtual workspace only (no OS shell)
-- **Source Control** — browser git (`isomorphic-git`) for File System Access folders: initialize a repo when needed, stage/unstage/commit (incl. hunk/selection staging in DiffEditor), Monaco diffs for working/staged/history, commit history with revert/cherry-pick/reset and compare-two-commits, stash (incl. untracked), merge conflict Accept Current/Incoming/Both + abort/continue, local branches and tags, Explorer decorations, and terminal `git` subset (`init` / `status` / `add` / `restore --staged` / `commit` / `branch` / `checkout` / `merge` / `log` / `stash` / `tag` / `reset` / `revert` / `cherry-pick`) — no remotes/push/pull yet; author in `localStorage`
+- **Source Control** — browser git (`isomorphic-git`) for File System Access folders: initialize/clone, stage/unstage/commit (incl. hunk staging), Monaco diffs, history (compare/revert/cherry-pick/reset), stash, merge conflicts, local branches/tags, **HTTPS remotes** (fetch/pull/push/sync/publish, ahead/behind), Explorer decorations, and a terminal `git` subset. Author + optional PATs in `localStorage`; network ops need a **CORS proxy** (default `https://cors.isomorphic-git.org`) and HTTPS URLs (no SSH)
 
 ## Requirements
 
@@ -45,6 +45,14 @@ npm run oe-agent
 The agent listens on `http://127.0.0.1:43128`. The Next.js app proxies `/api/oe/run` there (`OE_AGENT_URL` overrides the default). Then use **Run → Compile** / **Run → Run**, or terminal `compile` / `run`. Output (stdout, stderr, compile messages) appears in the **Output** pane (**View → Output**).
 
 Without the agent or `DLC`, the IDE still works for editing; Compile/Run show a clear error in Output.
+
+### Source Control remotes (browser)
+
+Git network ops run entirely in the browser via `isomorphic-git` + HTTPS:
+
+- **CORS** — hosts block browser `fetch` to git endpoints. Default proxy is `https://cors.isomorphic-git.org` (change under SCM → Remotes → CORS proxy, or `http.corsProxy` in the repo). Prefer a self-hosted proxy for private code.
+- **Auth** — username + personal access token (prompted on 401; optional remember per host in `localStorage`). Clear via Remotes → Clear credentials.
+- **Limits** — HTTPS remotes only (no SSH); no force-push UI; clone needs an **empty** folder via the directory picker.
 
 Or production:
 

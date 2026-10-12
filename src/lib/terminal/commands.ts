@@ -311,6 +311,10 @@ async function runGitCommand(
     api.writeln("  git tag [name [object] | -d name]");
     api.writeln("  git reset [--soft|--mixed|--hard] <ref>");
     api.writeln("  git revert <oid> | git cherry-pick <oid>");
+    api.writeln("  git remote [-v] | remote add <name> <url> | remote remove <name>");
+    api.writeln("  git fetch [remote] | pull [remote] | push [-u] [remote]");
+    api.writeln("  git clone <https-url>  (picks an empty folder)");
+    api.writeln("HTTPS + CORS proxy + PAT required for network ops (see README).");
     return;
   }
 
@@ -695,6 +699,121 @@ async function runGitCommand(
         api.writeln(`Cherry-picked ${oid}`);
       } catch (err) {
         api.writeln(`cherry-pick failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "remote": {
+      const g = useGitStore.getState();
+      const op = (args[1] ?? "").toLowerCase();
+      if (!op || op === "-v" || op === "--verbose") {
+        await g.refresh();
+        const list = useGitStore.getState().remotes;
+        if (!list.length) {
+          api.writeln("No remotes.");
+          return;
+        }
+        for (const r of list) {
+          api.writeln(`${r.remote}\t${r.url} (fetch)`);
+          api.writeln(`${r.remote}\t${r.url} (push)`);
+        }
+        return;
+      }
+      if (op === "add") {
+        const name = args[2];
+        const url = args[3];
+        if (!name || !url) {
+          api.writeln("Usage: git remote add <name> <https-url>");
+          return;
+        }
+        try {
+          await g.addRemote(name, url);
+          api.writeln(`Added remote ${name}`);
+        } catch (err) {
+          api.writeln(`remote add failed: ${(err as Error).message}`);
+        }
+        return;
+      }
+      if (op === "remove" || op === "rm") {
+        const name = args[2];
+        if (!name) {
+          api.writeln("Usage: git remote remove <name>");
+          return;
+        }
+        try {
+          await g.removeRemote(name);
+          api.writeln(`Removed remote ${name}`);
+        } catch (err) {
+          api.writeln(`remote remove failed: ${(err as Error).message}`);
+        }
+        return;
+      }
+      api.writeln(
+        "Usage: git remote [-v] | git remote add <name> <url> | git remote remove <name>"
+      );
+      return;
+    }
+
+    case "fetch": {
+      const remote = args[1] || "origin";
+      try {
+        await useGitStore.getState().fetchRemote(remote);
+        api.writeln(`Fetched ${remote}`);
+      } catch (err) {
+        api.writeln(`fetch failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "pull": {
+      const remote = args[1];
+      try {
+        await useGitStore.getState().pullRemote(remote);
+        api.writeln("Pull complete");
+      } catch (err) {
+        api.writeln(`pull failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "push": {
+      let setUpstream = false;
+      let remote: string | undefined;
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === "-u" || args[i] === "--set-upstream") {
+          setUpstream = true;
+        } else if (!remote && !args[i]!.startsWith("-")) {
+          remote = args[i];
+        }
+      }
+      try {
+        if (setUpstream) {
+          await useGitStore
+            .getState()
+            .publishBranch(remote || "origin");
+          api.writeln(`Published to ${remote || "origin"} (upstream set)`);
+        } else {
+          await useGitStore.getState().pushBranch({ remote });
+          api.writeln("Push complete");
+        }
+      } catch (err) {
+        api.writeln(`push failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "clone": {
+      const url = args[1];
+      if (!url) {
+        api.writeln("Usage: git clone <https-url>");
+        api.writeln("You will be prompted to pick an empty local folder.");
+        return;
+      }
+      try {
+        await useGitStore.getState().cloneRepository(url);
+        api.writeln(`Cloned ${url}`);
+      } catch (err) {
+        api.writeln(`clone failed: ${(err as Error).message}`);
       }
       return;
     }

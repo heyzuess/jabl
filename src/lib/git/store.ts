@@ -3,10 +3,12 @@
 import { create } from "zustand";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import type {
+  GitAheadBehind,
   GitAuthor,
   GitChange,
   GitCommitFileChange,
   GitCommitInfo,
+  GitRemoteInfo,
   GitResetMode,
   GitStashEntry,
   GitStatusSnapshot,
@@ -15,29 +17,40 @@ import type { LineChange } from "./hunk-stage";
 import type { ConflictResolveMode } from "./hunk-stage";
 import {
   abortMerge as abortMergeSvc,
+  addRemote as addRemoteSvc,
   checkoutBranch as checkoutBranchSvc,
   checkoutRef as checkoutRefSvc,
   cherryPickCommit as cherryPickSvc,
+  cloneRepository as cloneRepositorySvc,
   commitStaged,
   continueMerge as continueMergeSvc,
   createBranch as createBranchSvc,
   createTag as createTagSvc,
   deleteLocalBranch as deleteBranchSvc,
   deleteLocalTag as deleteTagSvc,
+  fetchRemote as fetchRemoteSvc,
+  getAheadBehind as getAheadBehindSvc,
   getCommitFileDiff,
+  getCorsProxySetting as getCorsProxySettingSvc,
   getStagedDiffSides,
   getWorkingDiffSides,
   initRepository,
   listCommitFiles,
   listLocalBranches,
   listLocalTags,
+  listRemotes as listRemotesSvc,
   listStash,
   loadCommitLog,
   loadGitStatus,
   mergeBranch as mergeBranchSvc,
+  publishBranch as publishBranchSvc,
+  pullRemote as pullRemoteSvc,
+  pushBranch as pushBranchSvc,
+  removeRemote as removeRemoteSvc,
   resetToCommit as resetToCommitSvc,
   resolveConflictFile as resolveConflictFileSvc,
   revertCommit as revertCommitSvc,
+  setCorsProxySetting as setCorsProxySettingSvc,
   stageAll,
   stageLineChanges as stageLineChangesSvc,
   stagePaths,
@@ -45,11 +58,17 @@ import {
   stashDrop as stashDropSvc,
   stashPop as stashPopSvc,
   stashPush as stashPushSvc,
+  syncWithRemote as syncWithRemoteSvc,
   unstageAll,
   unstageLineChanges as unstageLineChangesSvc,
   unstagePaths,
   type GitContext,
 } from "./git-service";
+import { clearAllStoredCredentials } from "./credentials";
+import {
+  setAuthPromptHandler,
+  type AuthPromptResult,
+} from "./http";
 
 const AUTHOR_KEY = "jabl-git-author";
 
@@ -116,10 +135,30 @@ type GitState = GitStatusSnapshot & {
     headOid: string;
     files: GitCommitFileChange[];
   } | null;
+  remotes: GitRemoteInfo[];
+  aheadBehind: GitAheadBehind;
+  corsProxy: string;
+  progress: string | null;
+  authPrompt: {
+    url: string;
+    host: string;
+    reason: "needed" | "rejected";
+  } | null;
   setAuthorName: (name: string) => void;
   setAuthorEmail: (email: string) => void;
   setCommitMessage: (message: string) => void;
   refresh: () => Promise<void>;
+  submitAuthPrompt: (result: AuthPromptResult) => void;
+  addRemote: (name: string, url: string) => Promise<void>;
+  removeRemote: (name: string) => Promise<void>;
+  setCorsProxy: (proxy: string) => Promise<void>;
+  clearSavedCredentials: () => void;
+  fetchRemote: (remote?: string) => Promise<void>;
+  pullRemote: (remote?: string) => Promise<void>;
+  pushBranch: (opts?: { remote?: string; setUpstream?: boolean }) => Promise<void>;
+  publishBranch: (remote?: string) => Promise<void>;
+  syncRemote: () => Promise<void>;
+  cloneRepository: (url: string) => Promise<void>;
   stage: (filepaths: string[]) => Promise<void>;
   unstage: (filepaths: string[]) => Promise<void>;
   stageAllChanges: () => Promise<void>;
@@ -173,6 +212,20 @@ type GitState = GitStatusSnapshot & {
 
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let refreshSeq = 0;
+let authPromptResolve: ((result: AuthPromptResult) => void) | null = null;
+
+const emptyAheadBehind: GitAheadBehind = {
+  ahead: 0,
+  behind: 0,
+  upstream: null,
+};
+
+function onNetworkProgress(set: (partial: Partial<GitState>) => void) {
+  return (e: { phase: string; loaded: number; total: number }) => {
+    const total = e.total > 0 ? ` ${e.loaded}/${e.total}` : "";
+    set({ progress: `${e.phase}${total}` });
+  };
+}
 
 export const useGitStore = create<GitState>((set, get) => {
   const author = loadAuthor();
@@ -198,6 +251,11 @@ export const useGitStore = create<GitState>((set, get) => {
     expandedCommitOid: null,
     compareBaseOid: null,
     compareResult: null,
+    remotes: [],
+    aheadBehind: emptyAheadBehind,
+    corsProxy: "",
+    progress: null,
+    authPrompt: null,
 
     setAuthorName: (name) => {
       set({ authorName: name });
@@ -210,6 +268,12 @@ export const useGitStore = create<GitState>((set, get) => {
     },
 
     setCommitMessage: (message) => set({ commitMessage: message }),
+
+    submitAuthPrompt: (result) => {
+      authPromptResolve?.(result);
+      authPromptResolve = null;
+      set({ authPrompt: null });
+    },
 
     reset: () =>
       set({
@@ -231,6 +295,10 @@ export const useGitStore = create<GitState>((set, get) => {
         expandedCommitOid: null,
         compareBaseOid: null,
         compareResult: null,
+        remotes: [],
+        aheadBehind: emptyAheadBehind,
+        progress: null,
+        authPrompt: null,
       }),
 
     refresh: async () => {
@@ -244,6 +312,14 @@ export const useGitStore = create<GitState>((set, get) => {
       let tags = get().tags;
       let commits = get().commits;
       let stashes = get().stashes;
+      let remotes = get().remotes;
+      let aheadBehind = get().aheadBehind;
+      let corsProxy = get().corsProxy;
+      try {
+        corsProxy = await getCorsProxySettingSvc(ctx);
+      } catch {
+        /* keep */
+      }
       if (snap.available) {
         try {
           branches = await listLocalBranches(ctx);
@@ -271,11 +347,25 @@ export const useGitStore = create<GitState>((set, get) => {
           console.warn("[git] listStash failed", err);
           stashes = [];
         }
+        try {
+          remotes = await listRemotesSvc(ctx);
+        } catch (err) {
+          console.warn("[git] listRemotes failed", err);
+          remotes = [];
+        }
+        try {
+          aheadBehind = await getAheadBehindSvc(ctx);
+        } catch (err) {
+          console.warn("[git] getAheadBehind failed", err);
+          aheadBehind = emptyAheadBehind;
+        }
       } else {
         branches = [];
         tags = [];
         commits = [];
         stashes = [];
+        remotes = [];
+        aheadBehind = emptyAheadBehind;
       }
 
       if (seq !== refreshSeq) return;
@@ -285,6 +375,9 @@ export const useGitStore = create<GitState>((set, get) => {
         tags,
         commits,
         stashes,
+        remotes,
+        aheadBehind,
+        corsProxy,
         busy: false,
       });
     },
@@ -780,8 +873,216 @@ export const useGitStore = create<GitState>((set, get) => {
         throw err;
       }
     },
+
+    addRemote: async (name, url) => {
+      set({ busy: true, error: null });
+      try {
+        await addRemoteSvc(ctxFromWorkspace(), name, url);
+        await get().refresh();
+        useWorkspaceStore.getState().setStatus(`Added remote ${name}`);
+      } catch (err) {
+        set({ busy: false, error: (err as Error).message });
+        throw err;
+      }
+    },
+
+    removeRemote: async (name) => {
+      set({ busy: true, error: null });
+      try {
+        await removeRemoteSvc(ctxFromWorkspace(), name);
+        await get().refresh();
+        useWorkspaceStore.getState().setStatus(`Removed remote ${name}`);
+      } catch (err) {
+        set({ busy: false, error: (err as Error).message });
+        throw err;
+      }
+    },
+
+    setCorsProxy: async (proxy) => {
+      set({ busy: true, error: null });
+      try {
+        await setCorsProxySettingSvc(ctxFromWorkspace(), proxy);
+        set({ corsProxy: proxy.trim() });
+        await get().refresh();
+        useWorkspaceStore.getState().setStatus("CORS proxy updated");
+      } catch (err) {
+        set({ busy: false, error: (err as Error).message });
+        throw err;
+      }
+    },
+
+    clearSavedCredentials: () => {
+      clearAllStoredCredentials();
+      useWorkspaceStore.getState().setStatus("Cleared saved git credentials");
+    },
+
+    fetchRemote: async (remote = "origin") => {
+      set({ busy: true, error: null, progress: "Fetching…" });
+      try {
+        await fetchRemoteSvc(
+          ctxFromWorkspace(),
+          remote,
+          onNetworkProgress(set)
+        );
+        await get().refresh();
+        set({ progress: null });
+        useWorkspaceStore.getState().setStatus(`Fetched ${remote}`);
+      } catch (err) {
+        set({
+          busy: false,
+          progress: null,
+          error: (err as Error).message,
+        });
+        throw err;
+      }
+    },
+
+    pullRemote: async (remote) => {
+      set({ busy: true, error: null, progress: "Pulling…" });
+      try {
+        await pullRemoteSvc(
+          ctxFromWorkspace(),
+          authorOf(get),
+          remote,
+          onNetworkProgress(set)
+        );
+        await reloadTreeAfterCheckout();
+        await get().refresh();
+        set({ progress: null });
+        useWorkspaceStore.getState().setStatus("Pull complete");
+      } catch (err) {
+        set({
+          busy: false,
+          progress: null,
+          error: (err as Error).message,
+        });
+        await get().refresh().catch(() => undefined);
+        throw err;
+      }
+    },
+
+    pushBranch: async (opts) => {
+      set({ busy: true, error: null, progress: "Pushing…" });
+      try {
+        await pushBranchSvc(ctxFromWorkspace(), {
+          ...opts,
+          onProgress: onNetworkProgress(set),
+        });
+        await get().refresh();
+        set({ progress: null });
+        useWorkspaceStore.getState().setStatus("Push complete");
+      } catch (err) {
+        set({
+          busy: false,
+          progress: null,
+          error: (err as Error).message,
+        });
+        throw err;
+      }
+    },
+
+    publishBranch: async (remote = "origin") => {
+      set({ busy: true, error: null, progress: "Publishing…" });
+      try {
+        await publishBranchSvc(
+          ctxFromWorkspace(),
+          remote,
+          onNetworkProgress(set)
+        );
+        await get().refresh();
+        set({ progress: null });
+        useWorkspaceStore
+          .getState()
+          .setStatus(`Published branch to ${remote}`);
+      } catch (err) {
+        set({
+          busy: false,
+          progress: null,
+          error: (err as Error).message,
+        });
+        throw err;
+      }
+    },
+
+    syncRemote: async () => {
+      set({ busy: true, error: null, progress: "Syncing…" });
+      try {
+        const result = await syncWithRemoteSvc(
+          ctxFromWorkspace(),
+          authorOf(get),
+          onNetworkProgress(set)
+        );
+        await reloadTreeAfterCheckout();
+        await get().refresh();
+        set({ progress: null });
+        const msg =
+          result === "uptodate"
+            ? "Already up to date"
+            : result === "pulled"
+              ? "Synced (pulled)"
+              : result === "pushed"
+                ? "Synced (pushed)"
+                : "Pulled remote changes (branch had diverged — push if needed)";
+        useWorkspaceStore.getState().setStatus(msg);
+      } catch (err) {
+        set({
+          busy: false,
+          progress: null,
+          error: (err as Error).message,
+        });
+        await get().refresh().catch(() => undefined);
+        throw err;
+      }
+    },
+
+    cloneRepository: async (url) => {
+      set({ busy: true, error: null, progress: "Clone: pick folder…" });
+      try {
+        const { pickDirectory, supportsDirectoryPicker } = await import(
+          "@/lib/workspace/fs-access"
+        );
+        if (!supportsDirectoryPicker()) {
+          throw new Error(
+            "File System Access API required to clone into a local folder"
+          );
+        }
+        const handle = await pickDirectory();
+        if (!handle) {
+          set({ busy: false, progress: null });
+          return;
+        }
+        set({ progress: "Cloning…" });
+        await cloneRepositorySvc(handle, url, onNetworkProgress(set));
+        await useWorkspaceStore.getState().openFolderFromHandle(handle);
+        await get().refresh();
+        set({ progress: null, busy: false });
+        useWorkspaceStore.getState().setStatus(`Cloned into ${handle.name}`);
+      } catch (err) {
+        set({
+          busy: false,
+          progress: null,
+          error: (err as Error).message,
+        });
+        throw err;
+      }
+    },
   };
 });
+
+if (typeof window !== "undefined") {
+  setAuthPromptHandler(async (info) => {
+    return new Promise<AuthPromptResult>((resolve) => {
+      authPromptResolve = resolve;
+      useGitStore.setState({
+        authPrompt: {
+          url: info.url,
+          host: info.host,
+          reason: info.reason,
+        },
+      });
+    });
+  });
+}
 
 /** Debounced refresh for save/mutation hooks. */
 export function scheduleGitRefresh(delayMs = 250): void {

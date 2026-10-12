@@ -2,9 +2,12 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
   ChevronDown,
   ChevronRight,
+  CloudUpload,
   FileCode2,
   Files,
   FolderGit2,
@@ -21,6 +24,14 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -33,6 +44,7 @@ import { PaneChrome } from "./PaneChrome";
 import { useLayoutStore } from "@/lib/workspace/layout-store";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { useGitStore } from "@/lib/git/store";
+import { DEFAULT_CORS_PROXY } from "@/lib/git/credentials";
 import type {
   GitChange,
   GitCommitFileChange,
@@ -436,6 +448,22 @@ export function SourceControlPane() {
   const createTag = useGitStore((s) => s.createTag);
   const deleteTag = useGitStore((s) => s.deleteTag);
   const checkoutTag = useGitStore((s) => s.checkoutTag);
+  const remotes = useGitStore((s) => s.remotes);
+  const aheadBehind = useGitStore((s) => s.aheadBehind);
+  const corsProxy = useGitStore((s) => s.corsProxy);
+  const progress = useGitStore((s) => s.progress);
+  const authPrompt = useGitStore((s) => s.authPrompt);
+  const submitAuthPrompt = useGitStore((s) => s.submitAuthPrompt);
+  const addRemote = useGitStore((s) => s.addRemote);
+  const removeRemote = useGitStore((s) => s.removeRemote);
+  const setCorsProxy = useGitStore((s) => s.setCorsProxy);
+  const clearSavedCredentials = useGitStore((s) => s.clearSavedCredentials);
+  const fetchRemote = useGitStore((s) => s.fetchRemote);
+  const pullRemote = useGitStore((s) => s.pullRemote);
+  const pushBranch = useGitStore((s) => s.pushBranch);
+  const publishBranch = useGitStore((s) => s.publishBranch);
+  const syncRemote = useGitStore((s) => s.syncRemote);
+  const cloneRepository = useGitStore((s) => s.cloneRepository);
 
   const canInitialize =
     !available && fsMode === "fs-access" && hasFsRoot && !busy;
@@ -447,10 +475,28 @@ export function SourceControlPane() {
   const [newTagName, setNewTagName] = useState("");
   const [tagObject, setTagObject] = useState<string | undefined>(undefined);
   const [stashMessage, setStashMessage] = useState("");
+  const [cloneUrl, setCloneUrl] = useState("");
+  const [showClone, setShowClone] = useState(false);
+  const [newRemoteName, setNewRemoteName] = useState("origin");
+  const [newRemoteUrl, setNewRemoteUrl] = useState("");
+  const [addingRemote, setAddingRemote] = useState(false);
+  const [editingCors, setEditingCors] = useState(false);
+  const [corsDraft, setCorsDraft] = useState("");
+  const [authUser, setAuthUser] = useState("");
+  const [authToken, setAuthToken] = useState("");
+  const [authRemember, setAuthRemember] = useState(true);
 
   useEffect(() => {
     void refresh();
   }, [refresh, fsMode, rootName]);
+
+  useEffect(() => {
+    if (authPrompt) {
+      setAuthUser("");
+      setAuthToken("");
+      setAuthRemember(true);
+    }
+  }, [authPrompt]);
 
   const canCommit =
     available &&
@@ -705,6 +751,118 @@ export function SourceControlPane() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {available && (
+                <div className="flex flex-wrap items-center gap-1 px-0.5">
+                  {aheadBehind.upstream ? (
+                    <span
+                      className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground"
+                      title={`Upstream ${aheadBehind.upstream.remote}/${aheadBehind.upstream.remoteBranch}`}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        <ArrowUp className="size-2.5" />
+                        {aheadBehind.ahead}
+                      </span>
+                      <span className="inline-flex items-center gap-0.5">
+                        <ArrowDown className="size-2.5" />
+                        {aheadBehind.behind}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">
+                      No upstream
+                    </span>
+                  )}
+                  <div className="ml-auto flex items-center gap-0.5">
+                    {aheadBehind.upstream ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 gap-1 px-1.5 text-[10px]"
+                        disabled={busy}
+                        title="Fetch, then pull or push"
+                        onClick={() =>
+                          void syncRemote().catch(() => undefined)
+                        }
+                      >
+                        <CloudUpload className="size-3" />
+                        Sync
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 gap-1 px-1.5 text-[10px]"
+                        disabled={busy || remotes.length === 0}
+                        title="Push and set upstream"
+                        onClick={() =>
+                          void publishBranch(
+                            remotes[0]?.remote ?? "origin"
+                          ).catch(() => undefined)
+                        }
+                      >
+                        <CloudUpload className="size-3" />
+                        Publish
+                      </Button>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1 text-[10px]"
+                            disabled={busy}
+                          />
+                        }
+                      >
+                        ⋯
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-36">
+                        <DropdownMenuItem
+                          disabled={busy || remotes.length === 0}
+                          onClick={() =>
+                            void fetchRemote(
+                              aheadBehind.upstream?.remote ??
+                                remotes[0]?.remote ??
+                                "origin"
+                            ).catch(() => undefined)
+                          }
+                        >
+                          Fetch
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={busy || remotes.length === 0}
+                          onClick={() =>
+                            void pullRemote(
+                              aheadBehind.upstream?.remote
+                            ).catch(() => undefined)
+                          }
+                        >
+                          Pull
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={busy || remotes.length === 0}
+                          onClick={() =>
+                            void pushBranch().catch(() => undefined)
+                          }
+                        >
+                          Push
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              )}
+
+              {progress && (
+                <p className="px-0.5 text-[10px] text-muted-foreground">
+                  {progress}
+                </p>
+              )}
+
               {creatingBranch && available && (
                 <div className="space-y-1 rounded border border-border bg-background/60 p-1.5">
                   <input
@@ -805,7 +963,7 @@ export function SourceControlPane() {
               )}
             </div>
 
-            {error && available && (
+            {error && (
               <p className="px-1 text-xs text-destructive">{error}</p>
             )}
 
@@ -835,6 +993,86 @@ export function SourceControlPane() {
                       "Open a local folder with File System Access to use Source Control."}
                   </p>
                 )}
+                <div className="space-y-1.5 border-t border-border pt-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Clone Repository
+                  </p>
+                  {showClone ? (
+                    <div className="space-y-1">
+                      <input
+                        autoFocus
+                        className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
+                        placeholder="https://github.com/org/repo.git"
+                        value={cloneUrl}
+                        onChange={(e) => setCloneUrl(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const url = cloneUrl.trim();
+                            if (!url) return;
+                            void cloneRepository(url)
+                              .then(() => {
+                                setCloneUrl("");
+                                setShowClone(false);
+                              })
+                              .catch(() => undefined);
+                          }
+                          if (e.key === "Escape") {
+                            setShowClone(false);
+                            setCloneUrl("");
+                          }
+                        }}
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        HTTPS only. You will pick an empty folder. CORS proxy:{" "}
+                        {corsProxy || DEFAULT_CORS_PROXY}
+                      </p>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-6 flex-1 text-[10px]"
+                          disabled={busy || !cloneUrl.trim()}
+                          onClick={() => {
+                            const url = cloneUrl.trim();
+                            if (!url) return;
+                            void cloneRepository(url)
+                              .then(() => {
+                                setCloneUrl("");
+                                setShowClone(false);
+                              })
+                              .catch(() => undefined);
+                          }}
+                        >
+                          Clone…
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[10px]"
+                          onClick={() => {
+                            setShowClone(false);
+                            setCloneUrl("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-full text-xs"
+                      disabled={busy}
+                      onClick={() => setShowClone(true)}
+                    >
+                      Clone Repository…
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1178,6 +1416,155 @@ export function SourceControlPane() {
                 )}
 
                 <div className="mb-2">
+                  <div className="flex items-center justify-between gap-1 px-2 pb-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Remotes
+                      <span className="ml-1 opacity-70">{remotes.length}</span>
+                    </p>
+                    <button
+                      type="button"
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setAddingRemote((v) => !v);
+                        setNewRemoteName(remotes.length ? "" : "origin");
+                        setNewRemoteUrl("");
+                      }}
+                    >
+                      {addingRemote ? "Cancel" : "Add"}
+                    </button>
+                  </div>
+                  <div className="space-y-1 px-1">
+                    {remotes.length === 0 && !addingRemote ? (
+                      <p className="px-1 text-xs text-muted-foreground">
+                        No remotes. Add an HTTPS origin to fetch/push.
+                      </p>
+                    ) : (
+                      remotes.map((r) => (
+                        <div
+                          key={r.remote}
+                          className="group flex items-start gap-1 rounded-sm px-1 py-0.5 hover:bg-accent/40"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-mono text-[11px] font-medium">
+                              {r.remote}
+                            </p>
+                            <p className="truncate font-mono text-[10px] text-muted-foreground">
+                              {r.url}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            title={`Remove ${r.remote}`}
+                            className="mt-0.5 text-destructive opacity-0 group-hover:opacity-100"
+                            onClick={() => {
+                              if (
+                                !window.confirm(`Remove remote "${r.remote}"?`)
+                              ) {
+                                return;
+                              }
+                              void removeRemote(r.remote).catch(
+                                () => undefined
+                              );
+                            }}
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                    {addingRemote && (
+                      <div className="space-y-1 rounded border border-border p-1.5">
+                        <input
+                          className="h-6 w-full rounded border border-border bg-background px-1.5 font-mono text-[11px] outline-none"
+                          placeholder="name (origin)"
+                          value={newRemoteName}
+                          onChange={(e) => setNewRemoteName(e.target.value)}
+                        />
+                        <input
+                          className="h-6 w-full rounded border border-border bg-background px-1.5 font-mono text-[11px] outline-none"
+                          placeholder="https://…"
+                          value={newRemoteUrl}
+                          onChange={(e) => setNewRemoteUrl(e.target.value)}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-6 w-full text-[10px]"
+                          disabled={
+                            busy ||
+                            !newRemoteName.trim() ||
+                            !newRemoteUrl.trim()
+                          }
+                          onClick={() => {
+                            void addRemote(newRemoteName, newRemoteUrl)
+                              .then(() => {
+                                setAddingRemote(false);
+                                setNewRemoteUrl("");
+                              })
+                              .catch(() => undefined);
+                          }}
+                        >
+                          Add remote
+                        </Button>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                      <button
+                        type="button"
+                        className="text-[10px] text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          setCorsDraft(corsProxy || DEFAULT_CORS_PROXY);
+                          setEditingCors((v) => !v);
+                        }}
+                      >
+                        CORS proxy
+                      </button>
+                      <button
+                        type="button"
+                        className="text-[10px] text-muted-foreground hover:text-foreground"
+                        onClick={() => clearSavedCredentials()}
+                      >
+                        Clear credentials
+                      </button>
+                    </div>
+                    {editingCors && (
+                      <div className="space-y-1">
+                        <input
+                          className="h-6 w-full rounded border border-border bg-background px-1.5 font-mono text-[10px] outline-none"
+                          value={corsDraft}
+                          onChange={(e) => setCorsDraft(e.target.value)}
+                          placeholder={DEFAULT_CORS_PROXY}
+                        />
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-6 flex-1 text-[10px]"
+                            disabled={busy}
+                            onClick={() => {
+                              void setCorsProxy(corsDraft)
+                                .then(() => setEditingCors(false))
+                                .catch(() => undefined);
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[10px]"
+                            onClick={() => setEditingCors(false)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mb-2">
                   <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Commits
                     <span className="ml-1 opacity-70">{commits.length}</span>
@@ -1242,6 +1629,75 @@ export function SourceControlPane() {
           </div>
         </ScrollArea>
       )}
+
+      <Dialog
+        open={!!authPrompt}
+        onOpenChange={(open) => {
+          if (!open) submitAuthPrompt(null);
+        }}
+      >
+        <DialogContent showCloseButton={false} className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Git credentials</DialogTitle>
+            <DialogDescription>
+              {authPrompt?.reason === "rejected"
+                ? "Authentication failed. Enter a username and personal access token."
+                : "Enter a username and personal access token for HTTPS git."}{" "}
+              Host:{" "}
+              <span className="font-mono text-foreground">
+                {authPrompt?.host}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <input
+              className="h-8 w-full rounded border border-border bg-background px-2 text-sm outline-none focus-visible:border-[var(--ide-accent)]"
+              placeholder="Username"
+              value={authUser}
+              onChange={(e) => setAuthUser(e.target.value)}
+              autoComplete="username"
+            />
+            <input
+              type="password"
+              className="h-8 w-full rounded border border-border bg-background px-2 text-sm outline-none focus-visible:border-[var(--ide-accent)]"
+              placeholder="Personal access token"
+              value={authToken}
+              onChange={(e) => setAuthToken(e.target.value)}
+              autoComplete="current-password"
+            />
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={authRemember}
+                onChange={(e) => setAuthRemember(e.target.checked)}
+              />
+              Remember for this host
+            </label>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => submitAuthPrompt(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!authUser.trim() || !authToken}
+              onClick={() =>
+                submitAuthPrompt({
+                  username: authUser.trim(),
+                  password: authToken,
+                  remember: authRemember,
+                })
+              }
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

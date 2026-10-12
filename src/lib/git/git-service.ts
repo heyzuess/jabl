@@ -4,19 +4,27 @@ import {
   STAGE,
   abortMerge as gitAbortMerge,
   add as gitAdd,
+  addRemote as gitAddRemote,
   branch as gitBranch,
   checkout as gitCheckout,
   cherryPick as gitCherryPick,
+  clone as gitClone,
   commit as gitCommit,
   currentBranch,
   deleteBranch as gitDeleteBranch,
+  deleteRemote as gitDeleteRemote,
   deleteTag as gitDeleteTag,
+  fetch as gitFetch,
+  findMergeBase,
+  getConfig,
   init as gitInit,
   listBranches,
   listFiles,
+  listRemotes as gitListRemotes,
   listTags as gitListTags,
   log as gitLog,
   merge as gitMerge,
+  push as gitPush,
   readBlob,
   readCommit,
   remove as gitRemove,
@@ -45,16 +53,26 @@ import {
   type ConflictResolveMode,
   type LineChange,
 } from "./hunk-stage";
+import {
+  assertHttpsRemoteUrl,
+  buildRemoteHttpOptions,
+  formatRemoteError,
+  type ProgressFn,
+} from "./http";
+import { getAppCorsProxy, setAppCorsProxy } from "./credentials";
 import type {
+  GitAheadBehind,
   GitAuthor,
   GitChange,
   GitCommitFileChange,
   GitCommitInfo,
   GitDiffSides,
   GitFileStatus,
+  GitRemoteInfo,
   GitResetMode,
   GitStashEntry,
   GitStatusSnapshot,
+  GitUpstreamInfo,
 } from "./types";
 
 const DIR = "/";
@@ -1322,4 +1340,345 @@ export async function checkoutRef(
   if (!trimmed) throw new Error("Ref is required");
   const { fs } = buildFs(ctx);
   await gitCheckout({ fs, dir: DIR, ref: trimmed });
+}
+
+// --- Remotes / network -----------------------------------------------------
+
+async function countCommitsUntil(
+  fs: ReturnType<typeof createFsAccessGitFs>,
+  startOid: string,
+  stopOid: string,
+  depth = 200
+): Promise<number> {
+  if (startOid === stopOid) return 0;
+  const commits = await gitLog({ fs, dir: DIR, ref: startOid, depth });
+  let n = 0;
+  for (const c of commits) {
+    if (c.oid === stopOid) break;
+    n++;
+  }
+  return n;
+}
+
+export async function listRemotes(ctx: GitContext): Promise<GitRemoteInfo[]> {
+  if (!(await probeGitRepo(ctx))) return [];
+  const { fs } = buildFs(ctx);
+  try {
+    const remotes = await gitListRemotes({ fs, dir: DIR });
+    return remotes.map((r) => ({ remote: r.remote, url: r.url }));
+  } catch {
+    return [];
+  }
+}
+
+export async function addRemote(
+  ctx: GitContext,
+  remote: string,
+  url: string
+): Promise<void> {
+  const name = remote.trim();
+  if (!name) throw new Error("Remote name is required");
+  if (!/^[A-Za-z0-9._/-]+$/.test(name)) {
+    throw new Error("Invalid remote name");
+  }
+  const httpsUrl = assertHttpsRemoteUrl(url);
+  const { fs } = buildFs(ctx);
+  await gitAddRemote({ fs, dir: DIR, remote: name, url: httpsUrl });
+}
+
+export async function removeRemote(
+  ctx: GitContext,
+  remote: string
+): Promise<void> {
+  const name = remote.trim();
+  if (!name) throw new Error("Remote name is required");
+  const { fs } = buildFs(ctx);
+  await gitDeleteRemote({ fs, dir: DIR, remote: name });
+}
+
+export async function getCorsProxySetting(ctx: GitContext): Promise<string> {
+  if (await probeGitRepo(ctx)) {
+    try {
+      const { fs } = buildFs(ctx);
+      const fromRepo = await getConfig({
+        fs,
+        dir: DIR,
+        path: "http.corsProxy",
+      });
+      if (typeof fromRepo === "string" && fromRepo.trim()) {
+        return fromRepo.trim();
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return getAppCorsProxy();
+}
+
+export async function setCorsProxySetting(
+  ctx: GitContext,
+  proxy: string
+): Promise<void> {
+  const value = proxy.trim();
+  setAppCorsProxy(value);
+  if (await probeGitRepo(ctx)) {
+    const { fs } = buildFs(ctx);
+    await setConfig({
+      fs,
+      dir: DIR,
+      path: "http.corsProxy",
+      value,
+    });
+  }
+}
+
+export async function getUpstreamInfo(
+  ctx: GitContext
+): Promise<GitUpstreamInfo | null> {
+  if (!(await probeGitRepo(ctx))) return null;
+  const { fs } = buildFs(ctx);
+  const branch = await currentBranch({ fs, dir: DIR, fullname: false });
+  if (!branch) return null;
+  const remote =
+    ((await getConfig({
+      fs,
+      dir: DIR,
+      path: `branch.${branch}.remote`,
+    })) as string | undefined) || null;
+  const merge =
+    ((await getConfig({
+      fs,
+      dir: DIR,
+      path: `branch.${branch}.merge`,
+    })) as string | undefined) || null;
+  if (!remote || !merge) return null;
+  const remoteBranch = merge.replace(/^refs\/heads\//, "");
+  const trackingRef = `refs/remotes/${remote}/${remoteBranch}`;
+  try {
+    await resolveRef({ fs, dir: DIR, ref: trackingRef });
+  } catch {
+    // Upstream configured but tracking ref missing (not fetched yet)
+    return { remote, remoteBranch, trackingRef };
+  }
+  return { remote, remoteBranch, trackingRef };
+}
+
+export async function getAheadBehind(
+  ctx: GitContext
+): Promise<GitAheadBehind> {
+  const upstream = await getUpstreamInfo(ctx);
+  if (!upstream) return { ahead: 0, behind: 0, upstream: null };
+  const { fs } = buildFs(ctx);
+  let localOid: string;
+  let remoteOid: string;
+  try {
+    localOid = await resolveRef({ fs, dir: DIR, ref: "HEAD" });
+    remoteOid = await resolveRef({ fs, dir: DIR, ref: upstream.trackingRef });
+  } catch {
+    return { ahead: 0, behind: 0, upstream };
+  }
+  if (localOid === remoteOid) {
+    return { ahead: 0, behind: 0, upstream };
+  }
+  try {
+    const bases = await findMergeBase({
+      fs,
+      dir: DIR,
+      oids: [localOid, remoteOid],
+    });
+    const base = bases[0];
+    if (!base) {
+      return { ahead: 0, behind: 0, upstream };
+    }
+    const [ahead, behind] = await Promise.all([
+      countCommitsUntil(fs, localOid, base),
+      countCommitsUntil(fs, remoteOid, base),
+    ]);
+    return { ahead, behind, upstream };
+  } catch {
+    return { ahead: 0, behind: 0, upstream };
+  }
+}
+
+async function setUpstreamTracking(
+  fs: ReturnType<typeof createFsAccessGitFs>,
+  branch: string,
+  remote: string,
+  remoteBranch: string
+): Promise<void> {
+  await setConfig({
+    fs,
+    dir: DIR,
+    path: `branch.${branch}.remote`,
+    value: remote,
+  });
+  await setConfig({
+    fs,
+    dir: DIR,
+    path: `branch.${branch}.merge`,
+    value: `refs/heads/${remoteBranch}`,
+  });
+}
+
+export async function fetchRemote(
+  ctx: GitContext,
+  remote = "origin",
+  onProgress?: ProgressFn
+): Promise<void> {
+  const { fs } = buildFs(ctx);
+  const httpOpts = buildRemoteHttpOptions({ onProgress });
+  try {
+    await gitFetch({
+      fs,
+      dir: DIR,
+      remote: remote.trim() || "origin",
+      ...httpOpts,
+    });
+  } catch (err) {
+    throw new Error(formatRemoteError(err));
+  }
+}
+
+export async function pullRemote(
+  ctx: GitContext,
+  author: GitAuthor,
+  remote?: string,
+  onProgress?: ProgressFn
+): Promise<void> {
+  const { fs } = buildFs(ctx);
+  await ensureAuthorConfig(fs, author);
+  const upstream = await getUpstreamInfo(ctx);
+  const remoteName = remote?.trim() || upstream?.remote || "origin";
+  const branch = await currentBranch({ fs, dir: DIR, fullname: false });
+  if (!branch) throw new Error("Detached HEAD — check out a branch to pull");
+
+  try {
+    await gitFetch({
+      fs,
+      dir: DIR,
+      remote: remoteName,
+      ...buildRemoteHttpOptions({ onProgress }),
+    });
+  } catch (err) {
+    throw new Error(formatRemoteError(err));
+  }
+
+  const remoteBranch = upstream?.remoteBranch || branch;
+  const theirs = `refs/remotes/${remoteName}/${remoteBranch}`;
+  try {
+    await resolveRef({ fs, dir: DIR, ref: theirs });
+  } catch {
+    throw new Error(
+      `No remote-tracking branch ${remoteName}/${remoteBranch}. Fetch or publish first.`
+    );
+  }
+
+  // Merge with abortOnConflict:false so Phase B conflict UI can resolve
+  const merged = await mergeBranch(ctx, theirs, author);
+  if (!merged.ok) {
+    throw new Error(merged.message);
+  }
+}
+
+export async function pushBranch(
+  ctx: GitContext,
+  opts?: {
+    remote?: string;
+    setUpstream?: boolean;
+    onProgress?: ProgressFn;
+  }
+): Promise<void> {
+  const { fs } = buildFs(ctx);
+  const branch = await currentBranch({ fs, dir: DIR, fullname: false });
+  if (!branch) throw new Error("Detached HEAD — check out a branch to push");
+  const upstream = await getUpstreamInfo(ctx);
+  const remote = opts?.remote?.trim() || upstream?.remote || "origin";
+  const remoteRef = upstream?.remoteBranch || branch;
+  const httpOpts = buildRemoteHttpOptions({ onProgress: opts?.onProgress });
+  try {
+    await gitPush({
+      fs,
+      dir: DIR,
+      remote,
+      ref: branch,
+      remoteRef,
+      ...httpOpts,
+    });
+  } catch (err) {
+    throw new Error(formatRemoteError(err));
+  }
+  if (opts?.setUpstream || !upstream) {
+    await setUpstreamTracking(fs, branch, remote, remoteRef);
+  }
+}
+
+export async function publishBranch(
+  ctx: GitContext,
+  remote = "origin",
+  onProgress?: ProgressFn
+): Promise<void> {
+  await pushBranch(ctx, {
+    remote: remote.trim() || "origin",
+    setUpstream: true,
+    onProgress,
+  });
+}
+
+export async function syncWithRemote(
+  ctx: GitContext,
+  author: GitAuthor,
+  onProgress?: ProgressFn
+): Promise<"pulled" | "pushed" | "uptodate" | "diverged"> {
+  const upstream = await getUpstreamInfo(ctx);
+  if (!upstream) {
+    await publishBranch(ctx, "origin", onProgress);
+    return "pushed";
+  }
+  await fetchRemote(ctx, upstream.remote, onProgress);
+  const ab = await getAheadBehind(ctx);
+  if (ab.ahead === 0 && ab.behind === 0) return "uptodate";
+  if (ab.behind > 0 && ab.ahead === 0) {
+    await pullRemote(ctx, author, upstream.remote, onProgress);
+    return "pulled";
+  }
+  if (ab.ahead > 0 && ab.behind === 0) {
+    await pushBranch(ctx, { remote: upstream.remote, onProgress });
+    return "pushed";
+  }
+  // Diverged — pull first (may conflict), caller can push after
+  await pullRemote(ctx, author, upstream.remote, onProgress);
+  return "diverged";
+}
+
+/**
+ * Clone into an empty File System Access directory handle.
+ * Caller should open the folder as the workspace afterward.
+ */
+export async function cloneRepository(
+  handle: FileSystemDirectoryHandle,
+  url: string,
+  onProgress?: ProgressFn
+): Promise<void> {
+  const httpsUrl = assertHttpsRemoteUrl(url);
+  const fs = createFsAccessGitFs(handle, null);
+  // Refuse non-empty targets (other than ignored junk)
+  const entries = (await fs.promises.readdir("/")) as string[];
+  const names = entries.filter((n: string) => n && n !== "." && n !== "..");
+  if (names.length > 0) {
+    throw new Error(
+      "Clone target folder is not empty. Pick an empty directory."
+    );
+  }
+  const httpOpts = buildRemoteHttpOptions({ onProgress });
+  try {
+    await gitClone({
+      fs,
+      dir: DIR,
+      url: httpsUrl,
+      singleBranch: false,
+      ...httpOpts,
+    });
+  } catch (err) {
+    throw new Error(formatRemoteError(err));
+  }
 }

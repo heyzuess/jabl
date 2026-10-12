@@ -99,6 +99,8 @@ export type WorkspaceState = {
   syntaxFocus: { path: string; line: number; column: number } | null;
 
   openFolderViaPicker: () => Promise<void>;
+  /** Open an already-picked directory handle as the workspace root. */
+  openFolderFromHandle: (handle: FileSystemDirectoryHandle) => Promise<void>;
   openFolderViaInput: (files: FileList) => Promise<void>;
   openLocalFileViaPicker: () => Promise<void>;
   openLocalFilesViaInput: (files: FileList) => Promise<void>;
@@ -402,6 +404,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         set({ loading: false, statusMessage: null });
         return;
       }
+      await get().openFolderFromHandle(handle);
+    } catch (err) {
+      set({
+        loading: false,
+        statusMessage: `Failed to open folder: ${(err as Error).message}`,
+      });
+    }
+  },
+
+  openFolderFromHandle: async (handle) => {
+    set({ loading: true, statusMessage: "Opening folder…" });
+    try {
       const root = await walkDirectory(handle);
       const preserved = preserveOutsideState(get());
       editorLayout().retainPaths(preserved.openTabs.map((t) => t.path));
@@ -421,6 +435,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         loading: false,
         statusMessage: `Failed to open folder: ${(err as Error).message}`,
       });
+      throw err;
     }
   },
 
