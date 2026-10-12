@@ -53,6 +53,8 @@ export type CreateNewFileInput = {
   language?: string;
   /** Directory under the open folder to create in (defaults to cwd). */
   dirPath?: string;
+  /** External folder from showDirectoryPicker — takes precedence over dirPath. */
+  dirHandle?: FileSystemDirectoryHandle;
 };
 
 export type SaveFileDialogState = {
@@ -100,6 +102,8 @@ export type WorkspaceState = {
   deleteEntry: (path: string) => Promise<void>;
   setActivePath: (path: string) => void;
   closeTab: (path: string) => void;
+  closeAllTabs: () => void;
+  closeSavedTabs: () => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   updateBuffer: (path: string, value: string) => void;
   saveActive: () => Promise<void>;
@@ -633,9 +637,58 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     editorLayout().openInFocusedGroup(path);
   },
 
-  createNewFile: async ({ name, content, language, dirPath }) => {
+  createNewFile: async ({ name, content, language, dirPath, dirHandle }) => {
     const { root, rootName, cwd, mode, openTabs } = get();
     const fileName = (name.trim() || "untitled.p").replace(/^.*[/\\]/, "");
+
+    // Browse-to-folder: write via an explicit directory handle (may be outside workspace).
+    if (dirHandle) {
+      try {
+        let uniqueName = fileName;
+        let n = 2;
+        for (;;) {
+          try {
+            await dirHandle.getFileHandle(uniqueName);
+            const dot = fileName.lastIndexOf(".");
+            const stem = dot > 0 ? fileName.slice(0, dot) : fileName;
+            const ext = dot > 0 ? fileName.slice(dot) : "";
+            uniqueName = `${stem}-${n}${ext}`;
+            n += 1;
+          } catch {
+            break;
+          }
+        }
+        const fileHandle = await writeFileInDirectory(
+          dirHandle,
+          uniqueName,
+          content
+        );
+        const newPath = uniqueLocalPath(uniqueName, openTabs);
+        const tab: OpenTab = {
+          path: newPath,
+          name: uniqueName,
+          language: language || languageForFilename(uniqueName),
+          fileHandle,
+        };
+        const already = openTabs.some((t) => t.path === newPath);
+        set({
+          buffers: { ...get().buffers, [newPath]: content },
+          dirty: { ...get().dirty, [newPath]: false },
+          openTabs: already ? openTabs : [...openTabs, tab],
+          activePath: newPath,
+          newFileDefaultDir: dirPath || dirHandle.name,
+          statusMessage: `Created ${uniqueName} in ${dirHandle.name}`,
+        });
+        editorLayout().openInFocusedGroup(newPath);
+        return;
+      } catch (err) {
+        set({
+          statusMessage: `Create failed: ${(err as Error).message}`,
+        });
+        return;
+      }
+    }
+
     const parentPath = normalizePath(
       dirPath || cwd || rootName || "",
       rootName || "workspace"
@@ -657,7 +710,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         name: fileName,
         content,
         language,
-        targetDir: parentPath,
+        targetDir: dirPath?.trim() || parentPath,
       });
       return;
     }
@@ -1010,6 +1063,47 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
     set({
       openTabs: nextTabs,
+      activePath: nextActive,
+      buffers: nextBuffers,
+      dirty: nextDirty,
+    });
+  },
+
+  closeAllTabs: () => {
+    editorLayout().retainPaths([]);
+    set({
+      openTabs: [],
+      activePath: null,
+      buffers: {},
+      dirty: {},
+    });
+  },
+
+  closeSavedTabs: () => {
+    const { openTabs, activePath, buffers, dirty } = get();
+    const keep = openTabs.filter(
+      (t) => dirty[t.path] || t.unsaved || isUntitledPath(t.path)
+    );
+    const keepPaths = new Set(keep.map((t) => t.path));
+    const nextBuffers: Record<string, string> = {};
+    const nextDirty: Record<string, boolean> = {};
+    for (const path of keepPaths) {
+      if (path in buffers) nextBuffers[path] = buffers[path];
+      if (dirty[path]) nextDirty[path] = true;
+    }
+    editorLayout().retainPaths([...keepPaths]);
+    const focused = editorLayout().getFocusedGroup();
+    let nextActive = focused.activePath;
+    if (!nextActive || !keepPaths.has(nextActive)) {
+      nextActive =
+        activePath && keepPaths.has(activePath)
+          ? activePath
+          : keep.length
+            ? keep[keep.length - 1].path
+            : null;
+    }
+    set({
+      openTabs: keep,
       activePath: nextActive,
       buffers: nextBuffers,
       dirty: nextDirty,

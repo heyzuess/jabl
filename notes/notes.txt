@@ -1,15 +1,14 @@
 [ideas]
-1. When creating a new file and a template is selected, there should be a preview of the template file shown
-   in the same window as the create new file option, but in a seperate pane to the right. If no template is 
-   selected this pane is blank. A placeholder text can be displayed in this pane at the center that says 
-   "preview" in a dark font when no template is selected.
-2. Allow files in the open files pane to be closed out by clicking x (similar to vs code or IntelliJ IDEA).
-3. Add options to open files pane to:
-    - close all files (prompt user to confirm closing all files when there are file changes unsaved).
-    - close all saved files only.
 
 [done / partial]
 - OpenEdge compile/run via local OE agent + Output pane (batch _progres; not full OS shell / prowin UI)
+- New File dialog: side-by-side template preview (placeholder when none selected; Blank shows empty preview)
+- Explorer open-files / unsaved lists: hover X to close a file
+- Explorer open-files pane: close all (confirm when unsaved/dirty/untitled) and close saved only
+
+[out of scope for open-files/template-preview work]
+- Dirty-confirm on single editor-tab close; editor tab context menus
+- Items under [future] below
 
 [future]
 - Real OS shell (terminal still virtual cwd only)
