@@ -24,6 +24,7 @@ import {
   renameHandle,
   renameNodeInTree,
   resolveDirectoryHandle,
+  downloadTextFile,
   saveTextFileLocally,
   supportsDirectoryPicker,
   supportsOpenFilePicker,
@@ -32,6 +33,12 @@ import {
   writeFileHandle,
   writeFileInDirectory,
 } from "./fs-access";
+import {
+  generateCatalogArtifacts,
+  mergeAnnotationsIntoMapping,
+  parseRestAnnotations,
+  parseServiceMapping,
+} from "@/lib/rest";
 import { useEditorLayoutStore } from "./editor-layout-store";
 import type { FileNode, FsMode, OpenTab } from "./types";
 
@@ -125,6 +132,8 @@ export type WorkspaceState = {
     focus?: { path: string; line: number; column: number } | null
   ) => void;
   clearSyntaxFocus: () => void;
+  /** Generate classic REST catalog artifacts from service-mapping.json. */
+  generateRestCatalog: (mappingPath?: string) => Promise<void>;
 };
 
 function uniqueChildName(
@@ -287,38 +296,153 @@ const SAMPLE_MANIFEST: { folder: string; files: string[] }[] = [
     folder: "schema",
     files: ["schema.df"],
   },
+  {
+    folder: "rest",
+    files: [
+      "README.md",
+      "RestJson.i",
+      "ApiBootstrap.cls",
+      "pasoe-handler-registration.md",
+      "RestRouter.cls",
+      "CustomersHandler.cls",
+      "get-customer.p",
+      "query-customers.p",
+      "post-customer.p",
+      "put-customer.p",
+      "patch-customer.p",
+      "delete-customer.p",
+      "options-cors.p",
+      "client-calls.p",
+      "catalog-openapi-client.p",
+      "openapi.yaml",
+      "handlers.md",
+      "PASOE-BRIDGE.md",
+    ],
+  },
+  {
+    folder: "rest/auth",
+    files: [
+      "README.md",
+      "auth-filter.cls",
+      "basic-auth.p",
+      "basic-auth-handler.cls",
+      "bearer-token.p",
+      "oauth2-client-credentials.p",
+      "oauth2-authorization-code.p",
+    ],
+  },
+  {
+    folder: "rest/doh",
+    files: [
+      "README.md",
+      "customers.map",
+      "customers.gen.notes.md",
+      "CustomerEntity.cls",
+      "doh-service-notes.md",
+    ],
+  },
+  {
+    folder: "rest/classic",
+    files: [
+      "README.md",
+      "CustomerRest.cls",
+      "get-customer-rest.p",
+      "service-mapping.json",
+      "rest-adapter-catalog.paar.md",
+    ],
+  },
+  {
+    folder: "rest/classic/expected",
+    files: ["catalog.json", "resourceModel.xml"],
+  },
 ];
 
+function ensureSampleDir(root: FileNode, parts: string[]): FileNode {
+  let node = root;
+  let pathAcc = root.path;
+  for (const part of parts) {
+    pathAcc = `${pathAcc}/${part}`;
+    let child = node.children?.find(
+      (c) => c.name === part && c.kind === "directory"
+    );
+    if (!child) {
+      child = {
+        name: part,
+        path: pathAcc,
+        kind: "directory",
+        children: [],
+      };
+      node.children = [...(node.children || []), child];
+    }
+    node = child;
+  }
+  return node;
+}
+
 async function loadSampleTree(): Promise<FileNode> {
-  const children: FileNode[] = [];
+  const root: FileNode = {
+    name: "samples",
+    path: "samples",
+    kind: "directory",
+    children: [],
+  };
   for (const group of SAMPLE_MANIFEST) {
-    const dirPath = `samples/${group.folder}`;
-    const files: FileNode[] = [];
+    const parts = group.folder.split("/").filter(Boolean);
+    const dir = ensureSampleDir(root, parts);
     for (const name of group.files) {
       const res = await fetch(`/samples/abl/${group.folder}/${name}`);
       if (!res.ok) continue;
       const content = await res.text();
-      files.push({
+      const filePath = `samples/${group.folder}/${name}`;
+      const existing = dir.children?.findIndex((c) => c.path === filePath) ?? -1;
+      const fileNode: FileNode = {
         name,
-        path: `${dirPath}/${name}`,
+        path: filePath,
         kind: "file",
         content,
-      });
+      };
+      if (existing >= 0 && dir.children) {
+        dir.children = dir.children.map((c, i) =>
+          i === existing ? fileNode : c
+        );
+      } else {
+        dir.children = [...(dir.children || []), fileNode];
+      }
     }
-    if (files.length === 0) continue;
-    children.push({
-      name: group.folder,
-      path: dirPath,
-      kind: "directory",
-      children: files,
+  }
+  return root;
+}
+
+function upsertFileContent(
+  root: FileNode | null,
+  filePath: string,
+  content: string
+): FileNode | null {
+  if (!root) return null;
+  const parts = filePath.split("/").filter(Boolean);
+  if (parts[0] !== root.name && filePath.startsWith(root.path + "/")) {
+    // path like samples/rest/... when root.path is samples
+  }
+  const rel = filePath.startsWith(root.path + "/")
+    ? filePath.slice(root.path.length + 1)
+    : filePath.startsWith(root.name + "/")
+      ? filePath.slice(root.name.length + 1)
+      : null;
+  if (rel == null) {
+    return insertOrReplaceChildNode(root, filePath, {
+      name: filePath.split("/").pop() || filePath,
+      path: filePath,
+      kind: "file",
+      content,
     });
   }
-  return {
-    name: "samples",
-    path: "samples",
-    kind: "directory",
-    children,
-  };
+  const name = rel.split("/").pop() || rel;
+  return insertOrReplaceChildNode(root, filePath, {
+    name,
+    path: filePath,
+    kind: "file",
+    content,
+  });
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
@@ -375,6 +499,108 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       syntaxFocus: focus,
     })),
   clearSyntaxFocus: () => set({ syntaxFocus: null }),
+
+  generateRestCatalog: async (mappingPath) => {
+    const { root, buffers, openTabs, activePath } = get();
+    const defaultPath = "samples/rest/classic/service-mapping.json";
+    let path = mappingPath || "";
+    if (!path && activePath) {
+      if (activePath.endsWith("service-mapping.json")) path = activePath;
+      else {
+        const dir = parentDirPath(activePath);
+        const sibling = `${dir}/service-mapping.json`;
+        if (findNode(root, sibling) || buffers[sibling] != null) path = sibling;
+      }
+    }
+    if (!path) path = defaultPath;
+
+    const readText = async (p: string): Promise<string | null> => {
+      if (buffers[p] != null) return buffers[p];
+      const node = findNode(root, p);
+      if (!node || node.kind !== "file") return null;
+      try {
+        return await readAttachedFile(node);
+      } catch {
+        return node.content ?? null;
+      }
+    };
+
+    const mappingText = await readText(path);
+    if (mappingText == null) {
+      set({
+        statusMessage: `REST catalog: mapping not found (${path}). Load Samples or open service-mapping.json.`,
+      });
+      return;
+    }
+
+    try {
+      let mapping = parseServiceMapping(mappingText);
+      const annPath = path.replace(/service-mapping\.json$/i, "CustomerRest.cls");
+      const annText = await readText(annPath);
+      if (annText) {
+        mapping = mergeAnnotationsIntoMapping(
+          mapping,
+          parseRestAnnotations(annText, "samples.rest.classic.CustomerRest")
+        );
+      }
+      const artifacts = generateCatalogArtifacts(mapping);
+      const dir = parentDirPath(path) || "samples/rest/classic";
+      const outputs: { name: string; content: string }[] = [
+        { name: "catalog.json", content: artifacts.catalogJson },
+        { name: "resourceModel.xml", content: artifacts.resourceModelXml },
+        { name: "paar-sketch.md", content: artifacts.paarSketchMd },
+      ];
+
+      let nextRoot = root;
+      let nextBuffers = { ...buffers };
+      let nextTabs = [...openTabs];
+      let lastPath: string | null = null;
+
+      for (const out of outputs) {
+        const outPath = `${dir}/${out.name}`;
+        lastPath = outPath;
+        nextBuffers[outPath] = out.content;
+        if (nextRoot) {
+          nextRoot = upsertFileContent(nextRoot, outPath, out.content);
+        }
+        const tabName = out.name;
+        if (!nextTabs.some((t) => t.path === outPath)) {
+          nextTabs.push({
+            path: outPath,
+            name: tabName,
+            language: languageIdForPath(outPath),
+          });
+        }
+        editorLayout().openInFocusedGroup(outPath);
+      }
+
+      if (!nextRoot) {
+        for (const out of outputs) {
+          downloadTextFile(out.name, out.content);
+        }
+      }
+
+      set({
+        root: nextRoot,
+        buffers: nextBuffers,
+        openTabs: nextTabs,
+        activePath: lastPath,
+        dirty: {
+          ...get().dirty,
+          ...Object.fromEntries(
+            outputs.map((o) => [`${dir}/${o.name}`, true] as const)
+          ),
+        },
+        statusMessage: nextRoot
+          ? `REST catalog generated in ${dir} (catalog.json, resourceModel.xml, paar-sketch.md)`
+          : `REST catalog downloaded (3 files). Open a folder or Samples to keep them in the workspace.`,
+      });
+    } catch (err) {
+      set({
+        statusMessage: `REST catalog failed: ${(err as Error).message}`,
+      });
+    }
+  },
 
   openFolderViaPicker: async () => {
     if (!supportsDirectoryPicker()) {
@@ -558,6 +784,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     try {
       const root = await loadSampleTree();
       editorLayout().resetLayout();
+      const hasRest = !!findNode(root, "samples/rest");
       set({
         mode: "samples",
         root,
@@ -570,7 +797,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         buffers: {},
         dirty: {},
         loading: false,
-        statusMessage: "Sample ABL project loaded",
+        statusMessage: hasRest
+          ? "Samples loaded — REST needs PASOE WEB (not batch Run). See samples/rest/README.md"
+          : "Sample ABL project loaded",
       });
     } catch (err) {
       set({
@@ -606,11 +835,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       language: languageIdForPath(path),
     };
     const already = openTabs.some((t) => t.path === path);
+    const restTip =
+      path.includes("/rest/") || path.startsWith("samples/rest")
+        ? " — REST samples need PASOE WEB (not batch Run)"
+        : "";
     set({
       buffers: { ...get().buffers, [path]: content },
       openTabs: already ? openTabs : [...openTabs, tab],
       activePath: path,
-      statusMessage: `Opened ${node.name}`,
+      statusMessage: `Opened ${node.name}${restTip}`,
     });
     editorLayout().openInFocusedGroup(path);
   },

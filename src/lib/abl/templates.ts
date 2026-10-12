@@ -7,7 +7,8 @@ export type AblTemplateId =
   | "interface"
   | "enum"
   | "abstract-class"
-  | "include";
+  | "include"
+  | "webhandler";
 
 export type AblTemplate = {
   id: AblTemplateId;
@@ -139,6 +140,31 @@ FUNCTION IsBlank RETURNS LOGICAL
   (INPUT pcValue AS CHARACTER):
   RETURN pcValue = ? OR TRIM(pcValue) = "".
 END FUNCTION.
+`,
+  },
+  {
+    id: "webhandler",
+    label: "WebHandler (.cls)",
+    description:
+      "PASOE WEB transport handler (OpenEdge.Web.WebHandler) with HandleGet stub",
+    defaultFilename: "MyHandler.cls",
+    content: `/* PASOE WebHandler — deploy on WEB transport (not batch _progres). */
+USING Progress.Lang.*.
+USING OpenEdge.Web.*.
+USING OpenEdge.Net.HTTP.*.
+
+CLASS MyHandler INHERITS WebHandler:
+
+  METHOD OVERRIDE PROTECTED INTEGER HandleGet(INPUT poRequest AS IWebRequest):
+    /* Read poRequest:PathInfo / query string; write JSON entity. */
+    RETURN INTEGER(StatusCodeEnum:OK).
+  END METHOD.
+
+  METHOD OVERRIDE PROTECTED INTEGER HandlePost(INPUT poRequest AS IWebRequest):
+    RETURN INTEGER(StatusCodeEnum:Created).
+  END METHOD.
+
+END CLASS.
 `,
   },
 ];

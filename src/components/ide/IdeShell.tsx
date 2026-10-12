@@ -12,6 +12,7 @@ import { FileExplorer } from "./FileExplorer";
 import { EditorSplitTree } from "./EditorSplitTree";
 import { TerminalPane } from "./TerminalPane";
 import { DocumentationPane } from "./DocumentationPane";
+import { MarkdownPreviewPane } from "./MarkdownPreviewPane";
 import { OutputPane } from "./OutputPane";
 import { ThemeSettings } from "./ThemeSettings";
 import { NewFileDialog } from "./NewFileDialog";
@@ -61,11 +62,21 @@ function IdeShellClient() {
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
   const documentationVisible = useLayoutStore((s) => s.documentationVisible);
   const outputVisible = useLayoutStore((s) => s.outputVisible);
+  const previewVisible = useLayoutStore((s) => s.previewVisible);
   const sidebarSide = useLayoutStore((s) => s.sidebarSide);
   const panelPosition = useLayoutStore((s) => s.panelPosition);
   const docsPosition = useLayoutStore((s) => s.docsPosition);
   const outputPosition = useLayoutStore((s) => s.outputPosition);
+  const previewPosition = useLayoutStore((s) => s.previewPosition);
   const minimized = useLayoutStore((s) => s.minimized);
+  const revealPreview = useLayoutStore((s) => s.revealPreview);
+  const activePath = useWorkspaceStore((s) => s.activePath);
+
+  useEffect(() => {
+    if (activePath && activePath.toLowerCase().endsWith(".md")) {
+      revealPreview();
+    }
+  }, [activePath, revealPreview]);
 
   useEffect(() => {
     if (hydrated && mode === "none") {
@@ -89,6 +100,7 @@ function IdeShellClient() {
   );
   const documentation = <DocumentationPane />;
   const output = <OutputPane />;
+  const preview = <MarkdownPreviewPane />;
 
   return (
     <TooltipProvider>
@@ -137,25 +149,32 @@ function IdeShellClient() {
           {maximized === "output" && (
             <div className="h-full w-full overflow-hidden">{output}</div>
           )}
+          {maximized === "preview" && (
+            <div className="h-full w-full overflow-hidden">{preview}</div>
+          )}
           {!maximized && (
             <LayoutBody
               sidebarVisible={sidebarVisible}
               terminalVisible={terminalVisible}
               documentationVisible={documentationVisible}
               outputVisible={outputVisible}
+              previewVisible={previewVisible}
               sidebarSide={sidebarSide}
               panelPosition={panelPosition}
               docsPosition={docsPosition}
               outputPosition={outputPosition}
+              previewPosition={previewPosition}
               explorerMinimized={minimized.explorer}
               terminalMinimized={minimized.terminal}
               documentationMinimized={minimized.documentation}
               outputMinimized={minimized.output}
+              previewMinimized={minimized.preview}
               explorer={explorer}
               editor={editor}
               terminal={terminal}
               documentation={documentation}
               output={output}
+              preview={preview}
             />
           )}
           <EdgeSnapOverlay />
@@ -186,19 +205,23 @@ type LayoutBodyProps = {
   terminalVisible: boolean;
   documentationVisible: boolean;
   outputVisible: boolean;
+  previewVisible: boolean;
   sidebarSide: "left" | "right";
   panelPosition: "bottom" | "right" | "left";
   docsPosition: "bottom" | "right" | "left";
   outputPosition: "bottom" | "right" | "left";
+  previewPosition: "bottom" | "right" | "left";
   explorerMinimized: boolean;
   terminalMinimized: boolean;
   documentationMinimized: boolean;
   outputMinimized: boolean;
+  previewMinimized: boolean;
   explorer: ReactNode;
   editor: ReactNode;
   terminal: ReactNode;
   documentation: ReactNode;
   output: ReactNode;
+  preview: ReactNode;
 };
 
 function LayoutBody({
@@ -206,19 +229,23 @@ function LayoutBody({
   terminalVisible,
   documentationVisible,
   outputVisible,
+  previewVisible,
   sidebarSide,
   panelPosition,
   docsPosition,
   outputPosition,
+  previewPosition,
   explorerMinimized,
   terminalMinimized,
   documentationMinimized,
   outputMinimized,
+  previewMinimized,
   explorer,
   editor,
   terminal,
   documentation,
   output,
+  preview,
 }: LayoutBodyProps) {
   const docsOnSide =
     documentationVisible &&
@@ -226,8 +253,12 @@ function LayoutBody({
   const outputOnSide =
     outputVisible &&
     (outputPosition === "left" || outputPosition === "right");
+  const previewOnSide =
+    previewVisible &&
+    (previewPosition === "left" || previewPosition === "right");
   const docsOnBottom = documentationVisible && docsPosition === "bottom";
   const outputOnBottom = outputVisible && outputPosition === "bottom";
+  const previewOnBottom = previewVisible && previewPosition === "bottom";
 
   const center = (
     <EditorBottomStack
@@ -238,10 +269,13 @@ function LayoutBody({
       documentationMinimized={documentationMinimized}
       outputOnBottom={outputOnBottom}
       outputMinimized={outputMinimized}
+      previewOnBottom={previewOnBottom}
+      previewMinimized={previewMinimized}
       editor={editor}
       terminal={terminal}
       documentation={documentation}
       output={output}
+      preview={preview}
     />
   );
 
@@ -314,6 +348,15 @@ function LayoutBody({
       minimized: outputMinimized,
     };
     if (outputPosition === "left") leftSide.push(item);
+    else rightSide.push(item);
+  }
+  if (previewOnSide) {
+    const item = {
+      id: "preview",
+      node: preview,
+      minimized: previewMinimized,
+    };
+    if (previewPosition === "left") leftSide.push(item);
     else rightSide.push(item);
   }
 
@@ -415,10 +458,13 @@ function EditorBottomStack({
   documentationMinimized,
   outputOnBottom,
   outputMinimized,
+  previewOnBottom,
+  previewMinimized,
   editor,
   terminal,
   documentation,
   output,
+  preview,
 }: {
   panelPosition: "bottom" | "right" | "left";
   terminalVisible: boolean;
@@ -427,10 +473,13 @@ function EditorBottomStack({
   documentationMinimized: boolean;
   outputOnBottom: boolean;
   outputMinimized: boolean;
+  previewOnBottom: boolean;
+  previewMinimized: boolean;
   editor: ReactNode;
   terminal: ReactNode;
   documentation: ReactNode;
   output: ReactNode;
+  preview: ReactNode;
 }) {
   const bottomExtras: ReactNode[] = [];
   if (terminalVisible && panelPosition === "bottom") {
@@ -472,6 +521,20 @@ function EditorBottomStack({
         minimized={outputMinimized}
       >
         {output}
+      </CollapsiblePane>
+    );
+  }
+  if (previewOnBottom) {
+    bottomExtras.push(
+      <CollapsiblePane
+        key="preview-bottom"
+        id="preview-bottom"
+        defaultSize="28%"
+        minSize="12%"
+        collapsedSize="2rem"
+        minimized={previewMinimized}
+      >
+        {preview}
       </CollapsiblePane>
     );
   }

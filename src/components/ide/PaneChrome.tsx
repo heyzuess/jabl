@@ -54,13 +54,16 @@ export function PaneChrome({
           ? minimized.documentation
           : pane === "output"
             ? minimized.output
-            : false;
+            : pane === "preview"
+              ? minimized.preview
+              : false;
 
   const canDock =
     pane === "explorer" ||
     pane === "terminal" ||
     pane === "documentation" ||
-    pane === "output";
+    pane === "output" ||
+    pane === "preview";
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!canDock || editorMode) return;

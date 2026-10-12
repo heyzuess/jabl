@@ -1,14 +1,24 @@
 [ideas]
 
+[bugs]
+
 [done / partial]
 - OpenEdge compile/run via local OE agent + Output pane (batch _progres; not full OS shell / prowin UI)
-- New File dialog: side-by-side template preview (placeholder when none selected; Blank shows empty preview)
-- Explorer open-files / unsaved lists: hover X to close a file
-- Explorer open-files pane: close all (confirm when unsaved/dirty/untitled) and close saved only
+- New File dialog: side-by-side template preview; directory via cwd / type / browse
+- Explorer open-files: hover X, close all / close saved
+- REST samples under samples/rest (WEB WebHandler, DOH .map, auth, classic mapping, OpenAPI)
+- WebHandler New File template; OpenEdge.Web builtin catalog (seed + scrape support)
+- Tools → Generate REST catalog (catalog.json, resourceModel.xml, paar-sketch.md)
+- Samples tip: REST needs PASOE WEB, not batch Run; PASOE-BRIDGE.md spike notes
 
 [out of scope for open-files/template-preview work]
 - Dirty-confirm on single editor-tab close; editor tab context menus
 - Items under [future] below
+
+[out of scope for REST samples work]
+- Binary .paar / Ant PaarGeneration from the browser
+- Full PDSOE REST URI Editor wizard parity
+- Hosting real PASOE inside the browser
 
 [future]
 - Real OS shell (terminal still virtual cwd only)
@@ -28,8 +38,10 @@
 - Package path vs folder convention and class/filename mismatch warnings
 - Richer OE language documentation corpus / external help links
 - Real OpenEdge compile diagnostics for OOP (overlaps compiler / LSP bullets above)
-- Remaining OpenEdge.* libraries beyond Core/Logging/Net (BusinessLogic, DataAdmin, Messaging, Security, ServerAdmin, …)
+- Remaining OpenEdge.* libraries beyond Core/Logging/Net/Web (BusinessLogic, DataAdmin, Messaging, Security, ServerAdmin, …)
 - Widget Reference (~22 widgets) documentation / completions
 - Handle Reference gaps (~51 handles) beyond existing system-handle keywords
 - Full Class Properties and Methods Reference attribute/method encyclopedia (~1,200+)
 - Class Events Reference catalog (built-in class events encyclopedia)
+- PASOE deploy/bridge from oe-agent; binary .paar via DLC Ant
+- Full OpenEdge.Web scrape refresh when docs site available (seed catalog committed)

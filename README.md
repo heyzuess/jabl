@@ -11,6 +11,8 @@ A VS Code–like browser IDE for **OpenEdge ABL** built with Next.js, Monaco, an
 - **New File** — create an unsaved tab from Blank, Procedure, Class, or Include templates; Save writes locally (`showSaveFilePicker` or download)
 - **Workspace** — `showDirectoryPicker` when available; `<input webkitdirectory>` fallback (save downloads the file)
 - **Sample project** — `public/samples/abl/` loads automatically so you can try the IDE immediately
+- **REST samples** — `samples/rest/` (PASOE WEB WebHandler + DataObjectHandler + auth + classic REST mapping). **Tools → Generate REST catalog…** emits `catalog.json` / `resourceModel.xml` from `service-mapping.json`. Live HTTP needs PASOE WEB, not batch Run.
+- **WebHandler template** — **File → New File…** includes an OpenEdge.Web.WebHandler scaffold
 - **Themes** — dark default, light toggle, and a customization panel (persisted in `localStorage`)
 - **Terminal** — xterm.js over the virtual workspace only (no OS shell)
 

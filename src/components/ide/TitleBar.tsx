@@ -71,6 +71,7 @@ export function TitleBar({
     (s) => s.openLocalFilesViaInput
   );
   const loadSamples = useWorkspaceStore((s) => s.loadSamples);
+  const generateRestCatalog = useWorkspaceStore((s) => s.generateRestCatalog);
   const saveActive = useWorkspaceStore((s) => s.saveActive);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
   const injectTerminal = useWorkspaceStore((s) => s.injectTerminal);
@@ -87,17 +88,21 @@ export function TitleBar({
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
   const documentationVisible = useLayoutStore((s) => s.documentationVisible);
   const outputVisible = useLayoutStore((s) => s.outputVisible);
+  const previewVisible = useLayoutStore((s) => s.previewVisible);
   const sidebarSide = useLayoutStore((s) => s.sidebarSide);
   const panelPosition = useLayoutStore((s) => s.panelPosition);
   const docsPosition = useLayoutStore((s) => s.docsPosition);
   const outputPosition = useLayoutStore((s) => s.outputPosition);
+  const previewPosition = useLayoutStore((s) => s.previewPosition);
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
   const toggleTerminal = useLayoutStore((s) => s.toggleTerminal);
   const toggleDocumentation = useLayoutStore((s) => s.toggleDocumentation);
   const toggleOutput = useLayoutStore((s) => s.toggleOutput);
+  const togglePreview = useLayoutStore((s) => s.togglePreview);
   const setSidebarSide = useLayoutStore((s) => s.setSidebarSide);
   const setPanelPosition = useLayoutStore((s) => s.setPanelPosition);
   const setDocsPosition = useLayoutStore((s) => s.setDocsPosition);
+  const setPreviewPosition = useLayoutStore((s) => s.setPreviewPosition);
   const setOutputPosition = useLayoutStore((s) => s.setOutputPosition);
   const restoreLayout = useLayoutStore((s) => s.restoreLayout);
   const maximized = useLayoutStore((s) => s.maximized);
@@ -252,6 +257,12 @@ export function TitleBar({
               >
                 Output
               </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={previewVisible}
+                onCheckedChange={() => togglePreview()}
+              >
+                Preview
+              </DropdownMenuCheckboxItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -338,6 +349,24 @@ export function TitleBar({
               >
                 Move Output Right
               </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={previewPosition === "bottom" && previewVisible}
+                onClick={() => setPreviewPosition("bottom")}
+              >
+                Move Preview Bottom
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={previewPosition === "left" && previewVisible}
+                onClick={() => setPreviewPosition("left")}
+              >
+                Move Preview Left
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={previewPosition === "right" && previewVisible}
+                onClick={() => setPreviewPosition("right")}
+              >
+                Move Preview Right
+              </DropdownMenuItem>
             </DropdownMenuGroup>
             {maximized && (
               <>
@@ -347,6 +376,28 @@ export function TitleBar({
                 </DropdownMenuItem>
               </>
             )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 text-xs"
+              />
+            }
+          >
+            Tools
+            <ChevronDown className="size-3 opacity-70" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-56">
+            <DropdownMenuItem onClick={() => void generateRestCatalog()}>
+              <Files className="size-3.5" />
+              Generate REST catalog…
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resourceModel serviceName="CustomerRestService" basePath="/rest/CustomerRestService" version="1.0.0">
+  <resource name="ListCustomers" method="GET" uri="/customers" target="samples.rest.classic.CustomerRest" operation="ListCustomers"/>
+  <resource name="GetCustomer" method="GET" uri="/customers/{id}" target="samples.rest.classic.CustomerRest" operation="GetCustomer"/>
+  <resource name="CreateCustomer" method="POST" uri="/customers" target="samples.rest.classic.CustomerRest" operation="CreateCustomer"/>
+  <resource name="UpdateCustomer" method="PUT" uri="/customers/{id}" target="samples.rest.classic.CustomerRest" operation="UpdateCustomer"/>
+  <resource name="DeleteCustomer" method="DELETE" uri="/customers/{id}" target="samples.rest.classic.CustomerRest" operation="DeleteCustomer"/>
+</resourceModel>
