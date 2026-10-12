@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Editor, { type OnMount } from "@monaco-editor/react";
+import Editor, { DiffEditor, type OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import {
   Columns2,
@@ -23,6 +23,13 @@ import {
   type EditorGroupId,
 } from "@/lib/workspace/editor-layout-store";
 import { useWorkspaceStore } from "@/lib/workspace/store";
+import type { DiffTabView, OpenTab } from "@/lib/workspace/types";
+import { loadDiffSidesForView, useGitStore } from "@/lib/git/store";
+import {
+  changeAtModifiedLine,
+  changesIntersectingSelection,
+  type LineChange,
+} from "@/lib/git/hunk-stage";
 
 const MARKER_OWNER = "abl-syntax";
 const TAB_MIME = "application/x-jabl-tab";
@@ -342,7 +349,16 @@ export function EditorPane({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {activeTab ? (
+        {activeTab?.view?.type === "diff" ? (
+          <GitDiffEditorPane
+            key={activeTab.path}
+            groupId={groupId}
+            tab={activeTab}
+            view={activeTab.view}
+            applyTheme={applyTheme}
+            themeKey={themeKey}
+          />
+        ) : activeTab ? (
           <Editor
             path={`${groupId}:${activeTab.path}`}
             language={activeTab.language}
@@ -381,6 +397,221 @@ export function EditorPane({
         ) : (
           <EmptyEditor />
         )}
+      </div>
+    </div>
+  );
+}
+
+function monacoChangesToLineChanges(
+  changes: Monaco.editor.ILineChange[] | null | undefined
+): LineChange[] {
+  if (!changes?.length) return [];
+  return changes.map((c) => ({
+    originalStartLineNumber: c.originalStartLineNumber,
+    originalEndLineNumber: c.originalEndLineNumber,
+    modifiedStartLineNumber: c.modifiedStartLineNumber,
+    modifiedEndLineNumber: c.modifiedEndLineNumber,
+  }));
+}
+
+function GitDiffEditorPane({
+  groupId,
+  tab,
+  view,
+  applyTheme,
+  themeKey,
+}: {
+  groupId: EditorGroupId;
+  tab: OpenTab;
+  view: DiffTabView;
+  applyTheme: (monaco: typeof Monaco) => void;
+  themeKey: string;
+}) {
+  const updateBuffer = useWorkspaceStore((s) => s.updateBuffer);
+  const stageHunks = useGitStore((s) => s.stageHunks);
+  const unstageHunks = useGitStore((s) => s.unstageHunks);
+  const gitBusy = useGitStore((s) => s.busy);
+  const [original, setOriginal] = useState("");
+  const [modified, setModified] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hunkBusy, setHunkBusy] = useState(false);
+  const monacoRef = useRef<typeof Monaco | null>(null);
+  const diffEditorRef = useRef<Monaco.editor.IStandaloneDiffEditor | null>(
+    null
+  );
+  const editable = view.mode === "working";
+  const canStageHunks = view.mode === "working" || view.mode === "staged";
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void loadDiffSidesForView(view)
+      .then((sides) => {
+        if (cancelled) return;
+        setOriginal(sides.original);
+        const live = useWorkspaceStore.getState().buffers[view.workspacePath];
+        setModified(editable && live != null ? live : sides.modified);
+        setLoading(false);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, editable]);
+
+  useEffect(() => {
+    if (monacoRef.current) applyTheme(monacoRef.current);
+  }, [applyTheme, themeKey]);
+
+  const collectTargetChanges = (preferSelection: boolean): LineChange[] => {
+    const editor = diffEditorRef.current;
+    if (!editor) return [];
+    const all = monacoChangesToLineChanges(editor.getLineChanges());
+    if (!all.length) return [];
+    const mod = editor.getModifiedEditor();
+    const sel = mod.getSelection();
+    if (preferSelection && sel && !sel.isEmpty()) {
+      const hit = changesIntersectingSelection(
+        all,
+        sel.startLineNumber,
+        sel.endLineNumber
+      );
+      if (hit.length) return hit;
+    }
+    const line = sel?.positionLineNumber ?? mod.getPosition()?.lineNumber ?? 1;
+    const at = changeAtModifiedLine(all, line);
+    return at ? [at] : [];
+  };
+
+  const runHunkAction = async (preferSelection: boolean) => {
+    const changes = collectTargetChanges(preferSelection);
+    if (!changes.length) {
+      useWorkspaceStore
+        .getState()
+        .setStatus("No diff hunk at cursor/selection");
+      return;
+    }
+    setHunkBusy(true);
+    try {
+      if (view.mode === "working") {
+        await stageHunks(view.filepath, changes);
+        useWorkspaceStore.getState().setStatus(
+          `Staged ${changes.length} hunk(s) in ${view.filepath}`
+        );
+      } else if (view.mode === "staged") {
+        await unstageHunks(view.filepath, changes);
+        useWorkspaceStore.getState().setStatus(
+          `Unstaged ${changes.length} hunk(s) in ${view.filepath}`
+        );
+      }
+      // Reload sides after index change
+      const sides = await loadDiffSidesForView(view);
+      setOriginal(sides.original);
+      setModified(sides.modified);
+    } catch (err) {
+      useWorkspaceStore
+        .getState()
+        .setStatus((err as Error).message);
+    } finally {
+      setHunkBusy(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        Loading diff…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center px-4 text-sm text-destructive">
+        {error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-[var(--ide-chrome)] px-2 py-1 font-mono text-[10px] text-muted-foreground">
+        <span className="truncate">{view.originalLabel}</span>
+        <span>↔</span>
+        <span className="truncate">{view.modifiedLabel}</span>
+        <span className="truncate text-foreground/80">{view.filepath}</span>
+        {canStageHunks && (
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-5 px-1.5 text-[10px]"
+              disabled={hunkBusy || gitBusy}
+              onClick={() => void runHunkAction(false)}
+            >
+              {view.mode === "working" ? "Stage Hunk" : "Unstage Hunk"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-5 px-1.5 text-[10px]"
+              disabled={hunkBusy || gitBusy}
+              onClick={() => void runHunkAction(true)}
+            >
+              {view.mode === "working"
+                ? "Stage Selection"
+                : "Unstage Selection"}
+            </Button>
+          </div>
+        )}
+      </div>
+      <div className="min-h-0 flex-1">
+        <DiffEditor
+          key={`${groupId}:${tab.path}`}
+          original={original}
+          modified={modified}
+          language={tab.language}
+          theme={MONACO_THEME_NAME}
+          keepCurrentOriginalModel
+          keepCurrentModifiedModel
+          onMount={(editor, monaco) => {
+            monacoRef.current = monaco;
+            diffEditorRef.current = editor;
+            registerAblLanguage(monaco);
+            applyTheme(monaco);
+            if (editable) {
+              const mod = editor.getModifiedEditor();
+              mod.onDidChangeModelContent(() => {
+                updateBuffer(view.workspacePath, mod.getValue());
+              });
+            }
+          }}
+          options={{
+            fontSize: 13,
+            fontFamily:
+              "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            readOnly: !editable,
+            originalEditable: false,
+            renderSideBySide: true,
+            wordWrap: "on",
+            padding: { top: 8 },
+          }}
+          loading={
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              Loading diff…
+            </div>
+          }
+        />
       </div>
     </div>
   );

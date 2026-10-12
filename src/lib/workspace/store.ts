@@ -33,7 +33,12 @@ import {
   writeFileInDirectory,
 } from "./fs-access";
 import { useEditorLayoutStore } from "./editor-layout-store";
-import type { FileNode, FsMode, OpenTab } from "./types";
+import type { DiffTabView, FileNode, FsMode, OpenTab } from "./types";
+import {
+  diffTabTitle,
+  languageForDiffFilepath,
+  makeGitDiffPath,
+} from "@/lib/git/diff-paths";
 
 function editorLayout() {
   return useEditorLayoutStore.getState();
@@ -99,6 +104,10 @@ export type WorkspaceState = {
   openLocalFilesViaInput: (files: FileList) => Promise<void>;
   loadSamples: () => Promise<void>;
   openFile: (path: string) => Promise<void>;
+  /** Open a virtual Monaco DiffEditor tab for a git change. */
+  openGitDiff: (view: Omit<DiffTabView, "type">) => void;
+  /** Re-walk the FS Access tree after checkout/merge (keeps outside tabs). */
+  reloadFsAccessTree: () => Promise<void>;
   createUntitledFile: (input: CreateUntitledInput) => void;
   createNewFile: (input: CreateNewFileInput) => Promise<void>;
   createNewFolder: (parentDir: string, name: string) => Promise<void>;
@@ -618,6 +627,66 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     editorLayout().openInFocusedGroup(path);
   },
 
+  openGitDiff: (viewInput) => {
+    const view: DiffTabView = { type: "diff", ...viewInput };
+    const path = makeGitDiffPath(view);
+    const { openTabs } = get();
+    const tab: OpenTab = {
+      path,
+      name: diffTabTitle(view),
+      language: languageForDiffFilepath(view.filepath),
+      view,
+    };
+    const already = openTabs.some((t) => t.path === path);
+    set({
+      openTabs: already
+        ? openTabs.map((t) => (t.path === path ? tab : t))
+        : [...openTabs, tab],
+      activePath: path,
+      statusMessage: `Diff: ${tab.name}`,
+    });
+    editorLayout().openInFocusedGroup(path);
+  },
+
+  reloadFsAccessTree: async () => {
+    const { mode, root, openTabs, buffers, dirty } = get();
+    if (mode !== "fs-access" || !root?.handle || root.kind !== "directory") {
+      return;
+    }
+    const handle = root.handle as FileSystemDirectoryHandle;
+    try {
+      const nextRoot = await walkDirectory(handle);
+      const nextBuffers = { ...buffers };
+      const nextDirty = { ...dirty };
+      // Reload open workspace file buffers from disk (skip dirty + virtual diffs)
+      for (const tab of openTabs) {
+        if (tab.view?.type === "diff") continue;
+        if (tab.unsaved || isUntitledPath(tab.path) || isLocalPath(tab.path)) {
+          continue;
+        }
+        if (nextDirty[tab.path]) continue;
+        const node = findNode(nextRoot, tab.path);
+        if (!node || node.kind !== "file") continue;
+        try {
+          nextBuffers[tab.path] = await readAttachedFile(node);
+        } catch {
+          /* keep prior buffer */
+        }
+      }
+      set({
+        root: nextRoot,
+        rootName: nextRoot.name,
+        buffers: nextBuffers,
+        dirty: nextDirty,
+        statusMessage: `Reloaded ${nextRoot.name}`,
+      });
+    } catch (err) {
+      set({
+        statusMessage: `Reload failed: ${(err as Error).message}`,
+      });
+    }
+  },
+
   createUntitledFile: ({ name, content, language, targetDir }) => {
     const { openTabs, cwd, rootName } = get();
     const path = uniqueUntitledPath(name, openTabs);
@@ -1067,10 +1136,30 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   saveActive: async () => {
-    const { activePath, buffers, root, mode, dirty, openTabs, cwd, rootName } =
-      get();
+    const {
+      buffers,
+      root,
+      mode,
+      dirty,
+      openTabs,
+      cwd,
+      rootName,
+    } = get();
+    let activePath = get().activePath;
     if (!activePath) {
       set({ statusMessage: "No file open to save" });
+      return;
+    }
+    const activeTab = openTabs.find((t) => t.path === activePath);
+    // Working-tree diff tabs save the real workspace file
+    if (
+      activeTab?.view?.type === "diff" &&
+      activeTab.view.mode === "working" &&
+      activeTab.view.workspacePath
+    ) {
+      activePath = activeTab.view.workspacePath;
+    } else if (activeTab?.view?.type === "diff") {
+      set({ statusMessage: "This diff is read-only" });
       return;
     }
     const content = buffers[activePath] ?? "";

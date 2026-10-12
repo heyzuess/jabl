@@ -11,6 +11,20 @@ export type FileNode = {
   content?: string;
 };
 
+/** Virtual git diff tab metadata (Monaco DiffEditor). */
+export type DiffTabView = {
+  type: "diff";
+  mode: "working" | "staged" | "commits";
+  /** Repo-relative path */
+  filepath: string;
+  /** Workspace path for the real file */
+  workspacePath: string;
+  originalRef: string;
+  modifiedRef: string;
+  originalLabel: string;
+  modifiedLabel: string;
+};
+
 export type OpenTab = {
   path: string;
   name: string;
@@ -19,6 +33,8 @@ export type OpenTab = {
   unsaved?: boolean;
   /** Writable handle after Save via showSaveFilePicker */
   fileHandle?: FileSystemFileHandle;
+  /** When set, EditorPane renders a DiffEditor instead of a normal editor */
+  view?: DiffTabView;
 };
 
 declare global {

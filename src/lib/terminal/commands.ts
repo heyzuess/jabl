@@ -67,11 +67,9 @@ export async function runCommand(
       api.writeln("  continue          Run to next breakpoint or end");
       api.writeln("  vars              Show inferred variables");
       api.writeln("  quit              End debug session");
-      api.writeln("  git status        Show repo status (fs-access + .git)");
-      api.writeln("  git add <path>| . Stage files");
-      api.writeln("  git restore --staged <path>  Unstage");
-      api.writeln("  git commit -m msg Commit staged changes");
-      api.writeln("  git branch        Show current branch");
+      api.writeln("  git init|status|add|restore --staged|commit");
+      api.writeln("  git branch|checkout|merge|log|stash|tag|reset");
+      api.writeln("  git revert|cherry-pick|merge --abort");
       break;
 
     case "clear":
@@ -307,20 +305,31 @@ async function runGitCommand(
 
   if (!sub || sub === "help") {
     api.writeln("git commands (browser isomorphic-git, not OS git):");
-    api.writeln("  git status");
-    api.writeln("  git add <path>… | git add .");
-    api.writeln("  git restore --staged <path>…");
-    api.writeln("  git commit -m \"message\"");
-    api.writeln("  git branch");
+    api.writeln("  git init | status | add | restore --staged | commit -m");
+    api.writeln("  git branch | checkout | merge [--abort] | log [-n N]");
+    api.writeln("  git stash [push [-u] [-m msg] | list | pop|apply|drop [n]]");
+    api.writeln("  git tag [name [object] | -d name]");
+    api.writeln("  git reset [--soft|--mixed|--hard] <ref>");
+    api.writeln("  git revert <oid> | git cherry-pick <oid>");
     return;
   }
 
   const refreshAnd = async (fn: () => Promise<void>) => {
     await fn();
-    await git.refresh();
+    await useGitStore.getState().refresh();
   };
 
   switch (sub) {
+    case "init": {
+      try {
+        await useGitStore.getState().initRepo("main");
+        api.writeln("Initialized empty Git repository (default branch: main)");
+      } catch (err) {
+        api.writeln(`init failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
     case "status": {
       await git.refresh();
       const s = useGitStore.getState();
@@ -329,6 +338,11 @@ async function runGitCommand(
         return;
       }
       api.writeln(`On branch ${s.branch ?? "HEAD"}`);
+      if (s.merging) api.writeln("You have unmerged paths (merge in progress).");
+      if (s.conflicts.length) {
+        api.writeln("Unmerged paths:");
+        for (const c of s.conflicts) api.writeln(`  both modified: ${c.filepath}`);
+      }
       if (s.staged.length) {
         api.writeln("Changes to be committed:");
         for (const c of s.staged) api.writeln(`  ${c.status}: ${c.filepath}`);
@@ -341,7 +355,12 @@ async function runGitCommand(
         api.writeln("Untracked files:");
         for (const c of s.untracked) api.writeln(`  ${c.filepath}`);
       }
-      if (!s.staged.length && !s.unstaged.length && !s.untracked.length) {
+      if (
+        !s.staged.length &&
+        !s.unstaged.length &&
+        !s.untracked.length &&
+        !s.conflicts.length
+      ) {
         api.writeln("nothing to commit, working tree clean");
       }
       return;
@@ -410,19 +429,279 @@ async function runGitCommand(
     }
 
     case "branch": {
+      if (args[1] === "-d" || args[1] === "-D") {
+        const name = args[2];
+        if (!name) {
+          api.writeln("Usage: git branch -d <name>");
+          return;
+        }
+        try {
+          await useGitStore.getState().deleteBranch(name);
+          api.writeln(`Deleted branch ${name}`);
+        } catch (err) {
+          api.writeln(`branch -d failed: ${(err as Error).message}`);
+        }
+        return;
+      }
+      if (args[1]) {
+        try {
+          await useGitStore.getState().createBranch(args[1], false);
+          api.writeln(`Created branch ${args[1]}`);
+        } catch (err) {
+          api.writeln(`branch failed: ${(err as Error).message}`);
+        }
+        return;
+      }
       await git.refresh();
       const s = useGitStore.getState();
       if (!s.available) {
         api.writeln(s.error ?? "Git not available.");
         return;
       }
-      api.writeln(`* ${s.branch ?? "HEAD"}`);
+      for (const b of s.branches) {
+        api.writeln(b === s.branch ? `* ${b}` : `  ${b}`);
+      }
+      return;
+    }
+
+    case "checkout": {
+      const name = args[1];
+      if (!name) {
+        api.writeln("Usage: git checkout <branch|tag>");
+        return;
+      }
+      try {
+        await useGitStore.getState().refresh();
+        const s = useGitStore.getState();
+        if (s.branches.includes(name)) {
+          await s.checkoutBranch(name);
+          api.writeln(`Switched to branch '${name}'`);
+        } else {
+          await s.checkoutTag(name);
+          api.writeln(`Checked out '${name}'`);
+        }
+      } catch (err) {
+        api.writeln(`checkout failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "merge": {
+      if (args[1] === "--abort") {
+        try {
+          await useGitStore.getState().abortMerge();
+          api.writeln("Merge aborted");
+        } catch (err) {
+          api.writeln(`merge --abort failed: ${(err as Error).message}`);
+        }
+        return;
+      }
+      const name = args[1];
+      if (!name) {
+        api.writeln("Usage: git merge <branch> | git merge --abort");
+        return;
+      }
+      try {
+        await useGitStore.getState().mergeBranch(name);
+        const s = useGitStore.getState();
+        if (s.merging || s.conflicts.length) {
+          api.writeln(
+            `Automatic merge failed; fix conflicts then commit. ${s.error ?? ""}`
+          );
+        } else {
+          api.writeln(
+            `Merged '${name}' into ${s.branch ?? "HEAD"}`
+          );
+        }
+      } catch (err) {
+        api.writeln(`merge failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "log": {
+      let depth = 20;
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === "-n" && args[i + 1]) {
+          const n = Number(args[i + 1]);
+          if (Number.isInteger(n) && n > 0) depth = Math.min(n, 100);
+        }
+      }
+      await git.refresh();
+      const s = useGitStore.getState();
+      if (!s.available) {
+        api.writeln(s.error ?? "Git not available.");
+        return;
+      }
+      const list = s.commits.slice(0, depth);
+      if (!list.length) {
+        api.writeln("No commits.");
+        return;
+      }
+      for (const c of list) {
+        api.writeln(`commit ${c.oid}`);
+        api.writeln(`Author: ${c.authorName} <${c.authorEmail}>`);
+        api.writeln("");
+        api.writeln(`    ${c.subject}`);
+        api.writeln("");
+      }
+      return;
+    }
+
+    case "stash": {
+      const g = useGitStore.getState();
+      const opRaw = args[1];
+      const op = (opRaw ?? "push").toLowerCase();
+      const isPushFlags = !opRaw || opRaw.startsWith("-") || op === "push" || op === "save";
+      try {
+        if (op === "list") {
+          await g.refresh();
+          const list = useGitStore.getState().stashes;
+          if (!list.length) {
+            api.writeln("No stash entries.");
+            return;
+          }
+          for (const s of list) {
+            api.writeln(`stash@{${s.index}}: ${s.message}`);
+          }
+          return;
+        }
+        if (isPushFlags) {
+          let includeUntracked = false;
+          let message = "";
+          const start =
+            opRaw && ["push", "save"].includes(opRaw.toLowerCase()) ? 2 : 1;
+          for (let i = start; i < args.length; i++) {
+            if (args[i] === "-u" || args[i] === "--include-untracked") {
+              includeUntracked = true;
+            } else if (args[i] === "-m" && args[i + 1]) {
+              message = args[++i]!;
+            }
+          }
+          await g.stashPush({ message: message || undefined, includeUntracked });
+          api.writeln(
+            includeUntracked
+              ? "Saved working directory (incl. untracked)"
+              : "Saved working directory"
+          );
+          return;
+        }
+        const idx = args[2] != null ? Number(args[2]) : 0;
+        const refIdx = Number.isInteger(idx) && idx >= 0 ? idx : 0;
+        if (op === "pop") {
+          await g.stashPop(refIdx);
+          api.writeln(`Dropped refs/stash@{${refIdx}} (pop)`);
+          return;
+        }
+        if (op === "apply") {
+          await g.stashApply(refIdx);
+          api.writeln(`Applied stash@{${refIdx}}`);
+          return;
+        }
+        if (op === "drop") {
+          await g.stashDrop(refIdx);
+          api.writeln(`Dropped stash@{${refIdx}}`);
+          return;
+        }
+        api.writeln(
+          "Usage: git stash [push [-u] [-m msg] | list | pop|apply|drop [n]]"
+        );
+      } catch (err) {
+        api.writeln(`stash failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "tag": {
+      const g = useGitStore.getState();
+      if (!args[1]) {
+        await g.refresh();
+        for (const t of useGitStore.getState().tags) api.writeln(t);
+        return;
+      }
+      if (args[1] === "-d" || args[1] === "-D") {
+        const name = args[2];
+        if (!name) {
+          api.writeln("Usage: git tag -d <name>");
+          return;
+        }
+        try {
+          await g.deleteTag(name);
+          api.writeln(`Deleted tag '${name}'`);
+        } catch (err) {
+          api.writeln(`tag -d failed: ${(err as Error).message}`);
+        }
+        return;
+      }
+      try {
+        await g.createTag(args[1], args[2]);
+        api.writeln(`Created tag '${args[1]}'`);
+      } catch (err) {
+        api.writeln(`tag failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "reset": {
+      let mode: "soft" | "mixed" | "hard" = "mixed";
+      let ref: string | undefined;
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === "--soft") mode = "soft";
+        else if (args[i] === "--mixed") mode = "mixed";
+        else if (args[i] === "--hard") mode = "hard";
+        else if (!args[i]!.startsWith("-")) ref = args[i];
+      }
+      if (!ref) {
+        api.writeln("Usage: git reset [--soft|--mixed|--hard] <ref>");
+        return;
+      }
+      if (mode === "hard") {
+        api.writeln(
+          "Warning: hard reset discards uncommitted changes (no interactive confirm in terminal)."
+        );
+      }
+      try {
+        await useGitStore.getState().resetToCommit(ref, mode);
+        api.writeln(`HEAD is now at ${ref} (${mode})`);
+      } catch (err) {
+        api.writeln(`reset failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "revert": {
+      const oid = args[1];
+      if (!oid) {
+        api.writeln("Usage: git revert <oid>");
+        return;
+      }
+      try {
+        await useGitStore.getState().revertCommit(oid);
+        api.writeln(`Reverted ${oid}`);
+      } catch (err) {
+        api.writeln(`revert failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "cherry-pick": {
+      const oid = args[1];
+      if (!oid) {
+        api.writeln("Usage: git cherry-pick <oid>");
+        return;
+      }
+      try {
+        await useGitStore.getState().cherryPick(oid);
+        api.writeln(`Cherry-picked ${oid}`);
+      } catch (err) {
+        api.writeln(`cherry-pick failed: ${(err as Error).message}`);
+      }
       return;
     }
 
     default:
       api.writeln(
-        `git ${sub}: not supported in v1. Try status, add, restore --staged, commit, branch.`
+        `git ${sub}: not supported. Type 'git help' for the supported subset.`
       );
   }
 }
