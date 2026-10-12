@@ -39,6 +39,12 @@ function editorLayout() {
   return useEditorLayoutStore.getState();
 }
 
+function notifyGitRefresh() {
+  void import("@/lib/git/store").then(({ scheduleGitRefresh }) => {
+    scheduleGitRefresh();
+  });
+}
+
 export type CreateUntitledInput = {
   name: string;
   content: string;
@@ -400,6 +406,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         loading: false,
         statusMessage: `Opened ${root.name}`,
       });
+      notifyGitRefresh();
     } catch (err) {
       set({
         loading: false,
@@ -709,6 +716,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           statusMessage: `Created ${newPath}`,
         });
         editorLayout().openInFocusedGroup(newPath);
+        notifyGitRefresh();
         return;
       } catch (err) {
         set({
@@ -912,6 +920,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         : null,
       statusMessage: `Renamed to ${safeName}`,
     });
+    if (mode === "fs-access") notifyGitRefresh();
   },
 
   deleteEntry: async (path) => {
@@ -983,6 +992,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       cwd: nextCwd,
       statusMessage: `Deleted ${node.name}`,
     });
+    if (mode === "fs-access") notifyGitRefresh();
   },
 
   setActivePath: (path) => {
@@ -1078,6 +1088,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           ),
           statusMessage: `Saved ${tab.name}`,
         });
+        notifyGitRefresh();
       } catch (err) {
         set({
           statusMessage: `Save failed: ${(err as Error).message}`,
@@ -1104,6 +1115,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           dirty: { ...dirty, [activePath]: false },
           statusMessage: `Saved ${activePath}`,
         });
+        notifyGitRefresh();
       } catch (err) {
         set({
           statusMessage: `Save failed: ${(err as Error).message}`,
@@ -1243,6 +1255,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       });
       if (activePath !== newPath) editorLayout().remapPath(activePath, newPath);
       else editorLayout().openInFocusedGroup(newPath);
+      notifyGitRefresh();
     } catch (err) {
       set({
         statusMessage: `Save failed: ${(err as Error).message}`,

@@ -58,6 +58,8 @@ export async function walkDirectory(
   const children: FileNode[] = [];
 
   for await (const entry of handle.values()) {
+    // Keep .git out of the explorer tree; git ops use the root handle directly.
+    if (entry.name === ".git") continue;
     const path = `${dirPath}/${entry.name}`;
     if (entry.kind === "directory") {
       const dirHandle = entry as FileSystemDirectoryHandle;

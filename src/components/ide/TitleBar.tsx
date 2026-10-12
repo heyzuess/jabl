@@ -14,6 +14,7 @@ import {
   ScanSearch,
   Sun,
   Files,
+  GitBranch,
   Hammer,
 } from "lucide-react";
 import { languageIdForPath } from "@/lib/abl/register";
@@ -92,6 +93,8 @@ export function TitleBar({
   const docsPosition = useLayoutStore((s) => s.docsPosition);
   const outputPosition = useLayoutStore((s) => s.outputPosition);
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
+  const revealSourceControl = useLayoutStore((s) => s.revealSourceControl);
+  const sidebarView = useLayoutStore((s) => s.sidebarView);
   const toggleTerminal = useLayoutStore((s) => s.toggleTerminal);
   const toggleDocumentation = useLayoutStore((s) => s.toggleDocumentation);
   const toggleOutput = useLayoutStore((s) => s.toggleOutput);
@@ -226,11 +229,15 @@ export function TitleBar({
             <DropdownMenuGroup>
               <DropdownMenuLabel>Panes</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
-                checked={sidebarVisible}
+                checked={sidebarVisible && sidebarView === "explorer"}
                 onCheckedChange={() => toggleSidebar()}
               >
                 Explorer
               </DropdownMenuCheckboxItem>
+              <DropdownMenuItem onClick={() => revealSourceControl()}>
+                <GitBranch className="size-3.5" />
+                Source Control
+              </DropdownMenuItem>
               <DropdownMenuCheckboxItem checked disabled>
                 Editor
               </DropdownMenuCheckboxItem>

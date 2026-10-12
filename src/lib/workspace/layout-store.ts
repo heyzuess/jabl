@@ -9,6 +9,7 @@ export type PaneId =
   | "documentation"
   | "output";
 export type SidebarSide = "left" | "right";
+export type SidebarView = "explorer" | "scm";
 export type PanelPosition = "bottom" | "right" | "left";
 export type SnapZone =
   | "left"
@@ -21,6 +22,7 @@ export type DockablePane = Exclude<PaneId, "editor">;
 
 export type LayoutState = {
   sidebarVisible: boolean;
+  sidebarView: SidebarView;
   terminalVisible: boolean;
   documentationVisible: boolean;
   outputVisible: boolean;
@@ -44,6 +46,8 @@ export type LayoutState = {
   toggleDocumentation: () => void;
   toggleOutput: () => void;
   setSidebarVisible: (visible: boolean) => void;
+  setSidebarView: (view: SidebarView) => void;
+  revealSourceControl: () => void;
   setTerminalVisible: (visible: boolean) => void;
   setDocumentationVisible: (visible: boolean) => void;
   setOutputVisible: (visible: boolean) => void;
@@ -68,6 +72,7 @@ export type LayoutState = {
 
 type PersistedLayout = {
   sidebarVisible: boolean;
+  sidebarView: SidebarView;
   terminalVisible: boolean;
   documentationVisible: boolean;
   outputVisible: boolean;
@@ -88,6 +93,7 @@ const STORAGE_KEY = "jabl-layout";
 
 const DEFAULT_LAYOUT: PersistedLayout = {
   sidebarVisible: true,
+  sidebarView: "explorer",
   terminalVisible: true,
   documentationVisible: false,
   outputVisible: false,
@@ -103,6 +109,10 @@ const DEFAULT_LAYOUT: PersistedLayout = {
     output: false,
   },
 };
+
+function isSidebarView(v: unknown): v is SidebarView {
+  return v === "explorer" || v === "scm";
+}
 
 function isPaneId(v: unknown): v is PaneId {
   return (
@@ -126,6 +136,9 @@ function loadPersisted(): PersistedLayout {
     const parsed = JSON.parse(raw) as Partial<PersistedLayout>;
     return {
       sidebarVisible: parsed.sidebarVisible ?? true,
+      sidebarView: isSidebarView(parsed.sidebarView)
+        ? parsed.sidebarView
+        : "explorer",
       terminalVisible: parsed.terminalVisible ?? true,
       documentationVisible: parsed.documentationVisible ?? false,
       outputVisible: parsed.outputVisible ?? false,
@@ -156,6 +169,7 @@ function persist(state: LayoutState) {
   if (typeof window === "undefined") return;
   const data: PersistedLayout = {
     sidebarVisible: state.sidebarVisible,
+    sidebarView: state.sidebarView,
     terminalVisible: state.terminalVisible,
     documentationVisible: state.documentationVisible,
     outputVisible: state.outputVisible,
@@ -332,6 +346,34 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         minimized: s.sidebarVisible
           ? s.minimized
           : { ...s.minimized, explorer: false },
+      };
+      persist(next);
+      return next;
+    });
+  },
+
+  setSidebarView: (view) => {
+    set((s) => {
+      const next = {
+        ...s,
+        sidebarView: view,
+        sidebarVisible: true,
+        maximized: s.maximized === "explorer" ? null : s.maximized,
+        minimized: { ...s.minimized, explorer: false },
+      };
+      persist(next);
+      return next;
+    });
+  },
+
+  revealSourceControl: () => {
+    set((s) => {
+      const next = {
+        ...s,
+        sidebarView: "scm" as const,
+        sidebarVisible: true,
+        maximized: s.maximized === "explorer" ? null : s.maximized,
+        minimized: { ...s.minimized, explorer: false },
       };
       persist(next);
       return next;

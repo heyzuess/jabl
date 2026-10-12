@@ -15,6 +15,8 @@ import {
   stepDebug,
 } from "@/lib/debug/session";
 import { executeAbl } from "@/lib/oe/execute";
+import { useGitStore } from "@/lib/git/store";
+import { toRepoRelativePath } from "@/lib/git/git-service";
 
 export type TerminalApi = {
   write: (text: string) => void;
@@ -65,6 +67,11 @@ export async function runCommand(
       api.writeln("  continue          Run to next breakpoint or end");
       api.writeln("  vars              Show inferred variables");
       api.writeln("  quit              End debug session");
+      api.writeln("  git status        Show repo status (fs-access + .git)");
+      api.writeln("  git add <path>| . Stage files");
+      api.writeln("  git restore --staged <path>  Unstage");
+      api.writeln("  git commit -m msg Commit staged changes");
+      api.writeln("  git branch        Show current branch");
       break;
 
     case "clear":
@@ -279,9 +286,143 @@ export async function runCommand(
       state.setStatus(null);
       break;
 
+    case "git":
+      await runGitCommand(args, state, api);
+      break;
+
     default:
       api.writeln(
         `Unknown command: ${cmd}. Type 'help' for available commands.`
+      );
+  }
+}
+
+async function runGitCommand(
+  args: string[],
+  state: WorkspaceState,
+  api: TerminalApi
+): Promise<void> {
+  const sub = (args[0] ?? "").toLowerCase();
+  const git = useGitStore.getState();
+
+  if (!sub || sub === "help") {
+    api.writeln("git commands (browser isomorphic-git, not OS git):");
+    api.writeln("  git status");
+    api.writeln("  git add <path>… | git add .");
+    api.writeln("  git restore --staged <path>…");
+    api.writeln("  git commit -m \"message\"");
+    api.writeln("  git branch");
+    return;
+  }
+
+  const refreshAnd = async (fn: () => Promise<void>) => {
+    await fn();
+    await git.refresh();
+  };
+
+  switch (sub) {
+    case "status": {
+      await git.refresh();
+      const s = useGitStore.getState();
+      if (!s.available) {
+        api.writeln(s.error ?? "Git not available.");
+        return;
+      }
+      api.writeln(`On branch ${s.branch ?? "HEAD"}`);
+      if (s.staged.length) {
+        api.writeln("Changes to be committed:");
+        for (const c of s.staged) api.writeln(`  ${c.status}: ${c.filepath}`);
+      }
+      if (s.unstaged.length) {
+        api.writeln("Changes not staged for commit:");
+        for (const c of s.unstaged) api.writeln(`  ${c.status}: ${c.filepath}`);
+      }
+      if (s.untracked.length) {
+        api.writeln("Untracked files:");
+        for (const c of s.untracked) api.writeln(`  ${c.filepath}`);
+      }
+      if (!s.staged.length && !s.unstaged.length && !s.untracked.length) {
+        api.writeln("nothing to commit, working tree clean");
+      }
+      return;
+    }
+
+    case "add": {
+      if (!args[1]) {
+        api.writeln("Usage: git add <path>… | git add .");
+        return;
+      }
+      if (args[1] === ".") {
+        await refreshAnd(async () => {
+          await useGitStore.getState().stageAllChanges();
+        });
+        api.writeln("staged all changes");
+        return;
+      }
+      const paths = args.slice(1).map((p) =>
+        toRepoRelativePath(p, state.rootName, state.cwd || state.rootName)
+      );
+      await refreshAnd(async () => {
+        await useGitStore.getState().stage(paths);
+      });
+      const err = useGitStore.getState().error;
+      if (err) api.writeln(err);
+      else api.writeln(`staged ${paths.join(", ")}`);
+      return;
+    }
+
+    case "restore": {
+      if (args[1] !== "--staged" || !args[2]) {
+        api.writeln("Usage: git restore --staged <path>…");
+        return;
+      }
+      const paths = args.slice(2).map((p) =>
+        toRepoRelativePath(p, state.rootName, state.cwd || state.rootName)
+      );
+      await refreshAnd(async () => {
+        await useGitStore.getState().unstage(paths);
+      });
+      const err = useGitStore.getState().error;
+      if (err) api.writeln(err);
+      else api.writeln(`unstaged ${paths.join(", ")}`);
+      return;
+    }
+
+    case "commit": {
+      let message = "";
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === "-m" && args[i + 1]) {
+          message = args[i + 1]!;
+          break;
+        }
+      }
+      if (!message) {
+        api.writeln('Usage: git commit -m "message"');
+        return;
+      }
+      try {
+        const sha = await git.commit(message);
+        api.writeln(`[${useGitStore.getState().branch ?? "HEAD"} ${sha.slice(0, 7)}] ${message}`);
+      } catch (err) {
+        api.writeln(`commit failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    case "branch": {
+      await git.refresh();
+      const s = useGitStore.getState();
+      if (!s.available) {
+        api.writeln(s.error ?? "Git not available.");
+        return;
+      }
+      api.writeln(`* ${s.branch ?? "HEAD"}`);
+      return;
+    }
+
+    default:
+      api.writeln(
+        `git ${sub}: not supported in v1. Try status, add, restore --staged, commit, branch.`
       );
   }
 }

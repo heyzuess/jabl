@@ -13,6 +13,7 @@ A VS Code–like browser IDE for **OpenEdge ABL** built with Next.js, Monaco, an
 - **Sample project** — `public/samples/abl/` loads automatically so you can try the IDE immediately
 - **Themes** — dark default, light toggle, and a customization panel (persisted in `localStorage`)
 - **Terminal** — xterm.js over the virtual workspace only (no OS shell)
+- **Source Control** — browser git (`isomorphic-git`) for folders opened with File System Access that already contain a `.git` directory: stage/unstage/commit, Explorer decorations, and terminal `git status` / `add` / `restore --staged` / `commit` / `branch` (no push/pull yet; author name/email stored in `localStorage`)
 
 ## Requirements
 

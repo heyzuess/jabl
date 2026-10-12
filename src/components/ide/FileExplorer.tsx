@@ -14,6 +14,7 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  GitBranch,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -22,8 +23,25 @@ import { isAblFile } from "@/lib/abl/keywords";
 import { isUntitledPath } from "@/lib/workspace/fs-access";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { useLayoutStore } from "@/lib/workspace/layout-store";
+import { useGitStore } from "@/lib/git/store";
 import type { FileNode, OpenTab } from "@/lib/workspace/types";
 import { PaneChrome } from "./PaneChrome";
+
+function gitDecorationForPath(
+  path: string,
+  decorations: Record<string, string>
+): string | null {
+  if (decorations[path]) return decorations[path];
+  const prefix = `${path}/`;
+  let letter: string | null = null;
+  for (const key of Object.keys(decorations)) {
+    if (!key.startsWith(prefix)) continue;
+    const d = decorations[key]!;
+    if (d === "M" || d === "U") return d;
+    letter = letter ?? d;
+  }
+  return letter;
+}
 
 function TreeNode({
   node,
@@ -45,6 +63,9 @@ function TreeNode({
   const isActive = useWorkspaceStore((s) => s.activePath === node.path);
   const isCwd = useWorkspaceStore((s) => s.cwd === node.path);
   const isDirty = useWorkspaceStore((s) => !!s.dirty[node.path]);
+  const gitLetter = useGitStore((s) =>
+    gitDecorationForPath(node.path, s.decorations)
+  );
   const abl = node.kind === "file" && isAblFile(node.name);
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState(node.name);
@@ -121,6 +142,11 @@ function TreeNode({
                 <Folder className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
               )}
               <span className="truncate">{node.name}</span>
+              {gitLetter && (
+                <span className="ml-auto shrink-0 pl-1 font-mono text-[10px] text-[var(--ide-accent)]">
+                  {gitLetter}
+                </span>
+              )}
             </button>
           )}
           <button
@@ -239,6 +265,11 @@ function TreeNode({
             {node.name}
             {isDirty ? " *" : ""}
           </span>
+          {gitLetter && (
+            <span className="ml-auto shrink-0 pl-1 font-mono text-[10px] text-[var(--ide-accent)]">
+              {gitLetter}
+            </span>
+          )}
         </button>
       )}
       <button
@@ -329,6 +360,7 @@ export function FileExplorer() {
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
   const openNewFolderDialog = useWorkspaceStore((s) => s.openNewFolderDialog);
   const explorerMinimized = useLayoutStore((s) => s.minimized.explorer);
+  const setSidebarView = useLayoutStore((s) => s.setSidebarView);
 
   const openFileTabs = openTabs.filter(
     (t) => !t.unsaved && !isUntitledPath(t.path)
@@ -344,6 +376,15 @@ export function FileExplorer() {
         title="Explorer"
         actions={
           <>
+            <button
+              type="button"
+              title="Source Control"
+              aria-label="Show Source Control"
+              className="inline-flex size-6 items-center justify-center rounded hover:bg-accent"
+              onClick={() => setSidebarView("scm")}
+            >
+              <GitBranch className="size-3.5" />
+            </button>
             <button
               type="button"
               title="New File (Ctrl/Cmd+N)"

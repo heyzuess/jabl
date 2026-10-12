@@ -9,6 +9,7 @@ import {
 } from "react-resizable-panels";
 import { TitleBar } from "./TitleBar";
 import { FileExplorer } from "./FileExplorer";
+import { SourceControlPane } from "./SourceControlPane";
 import { EditorSplitTree } from "./EditorSplitTree";
 import { TerminalPane } from "./TerminalPane";
 import { DocumentationPane } from "./DocumentationPane";
@@ -58,6 +59,7 @@ function IdeShellClient() {
 
   const maximized = useLayoutStore((s) => s.maximized);
   const sidebarVisible = useLayoutStore((s) => s.sidebarVisible);
+  const sidebarView = useLayoutStore((s) => s.sidebarView);
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
   const documentationVisible = useLayoutStore((s) => s.documentationVisible);
   const outputVisible = useLayoutStore((s) => s.outputVisible);
@@ -78,7 +80,8 @@ function IdeShellClient() {
   const editor = (
     <EditorSplitTree applyTheme={applyToMonaco} themeKey={themeKey} />
   );
-  const explorer = <FileExplorer />;
+  const explorer =
+    sidebarView === "scm" ? <SourceControlPane /> : <FileExplorer />;
   const terminal = (
     <TerminalPane
       mode={theme.mode}
