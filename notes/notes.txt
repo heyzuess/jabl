@@ -8,6 +8,30 @@
     - close all files (prompt user to confirm closing all files when there are file changes unsaved).
     - close all saved files only.
 
+[bugs]
+1. Open files pane should show under parent folder they are in relative to the current working directory.
+2. utils.i sample should update code sample to the following (content to add inside <CODE> tag):
+
+<CODE>
+/* Shared include — utility snippets for sample programs */
+
+&IF NOT DEFINED(H_UTILS) &THEN
+&GLOBAL-DEFINE H_UTILS
+&GLOBAL-DEFINE SAMPLE-VERSION 1.0
+
+FUNCTION FormatMoney RETURNS CHARACTER
+  (INPUT pdAmount AS DECIMAL):
+  RETURN STRING(pdAmount, "->>>,>>9.99").
+END FUNCTION.
+
+FUNCTION IsBlank RETURNS LOGICAL
+  (INPUT pcValue AS CHARACTER):
+  RETURN pcValue = ? OR TRIM(pcValue) = "".
+END FUNCTION.
+
+&ENDIF
+</CODE>
+
 [done / partial]
 - OpenEdge compile/run via local OE agent + Output pane (batch _progres; not full OS shell / prowin UI)
 
