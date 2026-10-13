@@ -1,12 +1,8 @@
 [ideas]
-1. When creating a new file and a template is selected, there should be a preview of the template file shown
-   in the same window as the create new file option, but in a seperate pane to the right. If no template is 
-   selected this pane is blank. A placeholder text can be displayed in this pane at the center that says 
-   "preview" in a dark font when no template is selected.
-2. Allow files in the open files pane to be closed out by clicking x (similar to vs code or IntelliJ IDEA).
-3. Add options to open files pane to:
-    - close all files (prompt user to confirm closing all files when there are file changes unsaved).
-    - close all saved files only.
+1. file tabs in code editor should be able to be dragged and dropped into splits in the code editor. When 
+a file is closed in a split, the file is only closed for that split and not all others. when dragging and
+dropping into an area in the code editor if a split doesnt exist there suggest to create one (like vs code
+does for dragging dropping files into splits).
 
 [bugs]
 1. Open files pane should show under parent folder they are in relative to the current working directory.

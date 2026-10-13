@@ -5,13 +5,11 @@ import { PaneChrome } from "./PaneChrome";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { useLayoutStore } from "@/lib/workspace/layout-store";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { useOutputStore } from "@/lib/oe/output-store";
 import type { OutputEntry } from "@/lib/oe/types";
 
 export function OutputPane() {
-  const minimized = useLayoutStore((s) => s.minimized.output);
   const entries = useOutputStore((s) => s.entries);
   const busy = useOutputStore((s) => s.busy);
   const clear = useOutputStore((s) => s.clear);
@@ -51,24 +49,18 @@ export function OutputPane() {
         }
       />
 
-      {minimized ? (
-        <div className="flex flex-1 items-center px-3 text-xs text-muted-foreground">
-          Output (minimized)
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-3 p-2 font-mono text-xs">
+          {!entries.length && (
+            <p className="px-1 text-muted-foreground">
+              Compile or Run an ABL program to see OpenEdge output here.
+            </p>
+          )}
+          {entries.map((entry) => (
+            <OutputEntryView key={entry.id} entry={entry} />
+          ))}
         </div>
-      ) : (
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-3 p-2 font-mono text-xs">
-            {!entries.length && (
-              <p className="px-1 text-muted-foreground">
-                Compile or Run an ABL program to see OpenEdge output here.
-              </p>
-            )}
-            {entries.map((entry) => (
-              <OutputEntryView key={entry.id} entry={entry} />
-            ))}
-          </div>
-        </ScrollArea>
-      )}
+      </ScrollArea>
     </div>
   );
 }

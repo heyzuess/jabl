@@ -1,12 +1,7 @@
 "use client";
 
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import {
-  Maximize2,
-  Minimize2,
-  PanelBottomClose,
-  X,
-} from "lucide-react";
+import { Maximize2, Minimize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useLayoutStore,
@@ -22,8 +17,6 @@ type PaneChromeProps = {
   /** Extra controls on the left of the action buttons (e.g. New File) */
   actions?: ReactNode;
   className?: string;
-  /** When true, only Expand/Restore is shown (editor) */
-  editorMode?: boolean;
 };
 
 export function PaneChrome({
@@ -32,38 +25,27 @@ export function PaneChrome({
   children,
   actions,
   className,
-  editorMode = false,
 }: PaneChromeProps) {
   const maximized = useLayoutStore((s) => s.maximized);
-  const minimized = useLayoutStore((s) => s.minimized);
   const toggleMaximize = useLayoutStore((s) => s.toggleMaximize);
   const minimizePane = useLayoutStore((s) => s.minimizePane);
-  const expandMinimized = useLayoutStore((s) => s.expandMinimized);
   const closePane = useLayoutStore((s) => s.closePane);
   const startPaneDrag = useLayoutStore((s) => s.startPaneDrag);
   const updateSnapTarget = useLayoutStore((s) => s.updateSnapTarget);
   const endPaneDrag = useLayoutStore((s) => s.endPaneDrag);
 
   const isMaximized = maximized === pane;
-  const isMinimized =
-    pane === "explorer"
-      ? minimized.explorer
-      : pane === "terminal"
-        ? minimized.terminal
-        : pane === "documentation"
-          ? minimized.documentation
-          : pane === "output"
-            ? minimized.output
-            : false;
+  const canClose = pane !== "editor";
 
   const canDock =
     pane === "explorer" ||
     pane === "terminal" ||
     pane === "documentation" ||
-    pane === "output";
+    pane === "output" ||
+    pane === "gitHistory";
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!canDock || editorMode) return;
+    if (!canDock) return;
     if ((e.target as HTMLElement).closest("button")) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     startPaneDrag(pane as DockablePane);
@@ -116,22 +98,12 @@ export function PaneChrome({
       <div className="flex shrink-0 items-center gap-0.5">
         {children}
         {actions}
-        {!editorMode && (
-          <ChromeButton
-            label={isMinimized ? "Expand pane" : "Minimize pane"}
-            onClick={() => {
-              if (pane === "editor") return;
-              if (isMinimized) expandMinimized(pane);
-              else minimizePane(pane);
-            }}
-          >
-            {isMinimized ? (
-              <PanelBottomClose className="size-3.5 rotate-180" />
-            ) : (
-              <Minimize2 className="size-3.5" />
-            )}
-          </ChromeButton>
-        )}
+        <ChromeButton
+          label="Minimize pane"
+          onClick={() => minimizePane(pane)}
+        >
+          <Minimize2 className="size-3.5" />
+        </ChromeButton>
         <ChromeButton
           label={isMaximized ? "Restore pane" : "Expand pane"}
           onClick={() => toggleMaximize(pane)}
@@ -142,14 +114,11 @@ export function PaneChrome({
             <Maximize2 className="size-3.5" />
           )}
         </ChromeButton>
-        {!editorMode && (
-          <ChromeButton
-            label="Close pane"
-            onClick={() => closePane(pane)}
-          >
+        {canClose ? (
+          <ChromeButton label="Close pane" onClick={() => closePane(pane)}>
             <X className="size-3.5" />
           </ChromeButton>
-        )}
+        ) : null}
       </div>
     </div>
   );

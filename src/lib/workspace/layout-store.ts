@@ -7,7 +7,8 @@ export type PaneId =
   | "editor"
   | "terminal"
   | "documentation"
-  | "output";
+  | "output"
+  | "gitHistory";
 export type SidebarSide = "left" | "right";
 export type SidebarView = "explorer" | "scm";
 export type PanelPosition = "bottom" | "right" | "left";
@@ -26,17 +27,24 @@ export type LayoutState = {
   terminalVisible: boolean;
   documentationVisible: boolean;
   outputVisible: boolean;
+  gitHistoryVisible: boolean;
+  editorVisible: boolean;
   sidebarSide: SidebarSide;
   panelPosition: PanelPosition;
   docsPosition: PanelPosition;
   outputPosition: PanelPosition;
+  gitHistoryPosition: PanelPosition;
   maximized: PaneId | null;
   minimized: {
     explorer: boolean;
     terminal: boolean;
     documentation: boolean;
     output: boolean;
+    gitHistory: boolean;
+    editor: boolean;
   };
+  /** Last known size % before minimize (restored when expanding). */
+  paneSizes: Partial<Record<PaneId, string>>;
   /** Ephemeral: which secondary pane chrome is being dragged for snap */
   draggingPane: DockablePane | null;
   snapTarget: SnapZone | null;
@@ -45,21 +53,26 @@ export type LayoutState = {
   toggleTerminal: () => void;
   toggleDocumentation: () => void;
   toggleOutput: () => void;
+  toggleGitHistory: () => void;
+  toggleEditor: () => void;
   setSidebarVisible: (visible: boolean) => void;
   setSidebarView: (view: SidebarView) => void;
   revealSourceControl: () => void;
   setTerminalVisible: (visible: boolean) => void;
   setDocumentationVisible: (visible: boolean) => void;
   setOutputVisible: (visible: boolean) => void;
+  setGitHistoryVisible: (visible: boolean) => void;
+  setEditorVisible: (visible: boolean) => void;
   setSidebarSide: (side: SidebarSide) => void;
   setPanelPosition: (position: PanelPosition) => void;
   setDocsPosition: (position: PanelPosition) => void;
   setOutputPosition: (position: PanelPosition) => void;
+  setGitHistoryPosition: (position: PanelPosition) => void;
   maximizePane: (pane: PaneId) => void;
   restoreLayout: () => void;
   toggleMaximize: (pane: PaneId) => void;
-  minimizePane: (pane: DockablePane) => void;
-  expandMinimized: (pane: DockablePane) => void;
+  minimizePane: (pane: PaneId) => void;
+  expandMinimized: (pane: PaneId) => void;
   closePane: (pane: PaneId) => void;
   startPaneDrag: (pane: DockablePane) => void;
   updateSnapTarget: (zone: SnapZone | null) => void;
@@ -68,6 +81,8 @@ export type LayoutState = {
   /** Show documentation pane and optionally focus a topic opener callback side-effect */
   revealDocumentation: () => void;
   revealOutput: () => void;
+  revealGitHistory: () => void;
+  revealEditor: () => void;
 };
 
 type PersistedLayout = {
@@ -76,20 +91,35 @@ type PersistedLayout = {
   terminalVisible: boolean;
   documentationVisible: boolean;
   outputVisible: boolean;
+  gitHistoryVisible: boolean;
+  editorVisible: boolean;
   sidebarSide: SidebarSide;
   panelPosition: PanelPosition;
   docsPosition: PanelPosition;
   outputPosition: PanelPosition;
+  gitHistoryPosition: PanelPosition;
   maximized: PaneId | null;
   minimized: {
     explorer: boolean;
     terminal: boolean;
     documentation: boolean;
     output: boolean;
+    gitHistory: boolean;
+    editor: boolean;
   };
+  paneSizes: Partial<Record<PaneId, string>>;
 };
 
 const STORAGE_KEY = "jabl-layout";
+
+const DEFAULT_PANE_SIZES: Record<PaneId, string> = {
+  explorer: "22%",
+  editor: "72%",
+  terminal: "28%",
+  documentation: "28%",
+  output: "28%",
+  gitHistory: "28%",
+};
 
 const DEFAULT_LAYOUT: PersistedLayout = {
   sidebarVisible: true,
@@ -97,18 +127,62 @@ const DEFAULT_LAYOUT: PersistedLayout = {
   terminalVisible: true,
   documentationVisible: false,
   outputVisible: false,
+  gitHistoryVisible: false,
+  editorVisible: true,
   sidebarSide: "left",
   panelPosition: "bottom",
   docsPosition: "right",
   outputPosition: "bottom",
+  gitHistoryPosition: "bottom",
   maximized: null,
   minimized: {
     explorer: false,
     terminal: false,
     documentation: false,
     output: false,
+    gitHistory: false,
+    editor: false,
   },
+  paneSizes: {},
 };
+
+function panelDomIdsFor(pane: PaneId): string[] {
+  switch (pane) {
+    case "documentation":
+      return ["documentation", "documentation-bottom"];
+    case "output":
+      return ["output", "output-bottom"];
+    case "gitHistory":
+      return ["gitHistory", "gitHistory-bottom"];
+    default:
+      return [pane];
+  }
+}
+
+/** Capture current panel size as a percentage of its group. */
+export function capturePaneSize(pane: PaneId): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  for (const id of panelDomIdsFor(pane)) {
+    const el = document.getElementById(id);
+    if (!el?.parentElement) continue;
+    const parent = el.parentElement;
+    const vertical = getComputedStyle(parent).flexDirection.includes("column");
+    const total = vertical ? parent.clientHeight : parent.clientWidth;
+    const size = vertical ? el.clientHeight : el.clientWidth;
+    if (total <= 0 || size <= 0) continue;
+    const pct = Math.round((size / total) * 1000) / 10;
+    if (pct > 0 && pct <= 100) return `${pct}%`;
+  }
+  return undefined;
+}
+
+export function sizeForPane(
+  paneSizes: Partial<Record<PaneId, string>>,
+  pane: PaneId,
+  fallback?: string
+): string {
+  return paneSizes[pane] ?? fallback ?? DEFAULT_PANE_SIZES[pane];
+}
 
 function isSidebarView(v: unknown): v is SidebarView {
   return v === "explorer" || v === "scm";
@@ -120,7 +194,8 @@ function isPaneId(v: unknown): v is PaneId {
     v === "editor" ||
     v === "terminal" ||
     v === "documentation" ||
-    v === "output"
+    v === "output" ||
+    v === "gitHistory"
   );
 }
 
@@ -142,6 +217,8 @@ function loadPersisted(): PersistedLayout {
       terminalVisible: parsed.terminalVisible ?? true,
       documentationVisible: parsed.documentationVisible ?? false,
       outputVisible: parsed.outputVisible ?? false,
+      gitHistoryVisible: parsed.gitHistoryVisible ?? false,
+      editorVisible: parsed.editorVisible ?? true,
       sidebarSide: parsed.sidebarSide === "right" ? "right" : "left",
       panelPosition: isPanelPosition(parsed.panelPosition)
         ? parsed.panelPosition
@@ -152,13 +229,22 @@ function loadPersisted(): PersistedLayout {
       outputPosition: isPanelPosition(parsed.outputPosition)
         ? parsed.outputPosition
         : "bottom",
+      gitHistoryPosition: isPanelPosition(parsed.gitHistoryPosition)
+        ? parsed.gitHistoryPosition
+        : "bottom",
       maximized: isPaneId(parsed.maximized) ? parsed.maximized : null,
       minimized: {
         explorer: !!parsed.minimized?.explorer,
         terminal: !!parsed.minimized?.terminal,
         documentation: !!parsed.minimized?.documentation,
         output: !!parsed.minimized?.output,
+        gitHistory: !!parsed.minimized?.gitHistory,
+        editor: !!parsed.minimized?.editor,
       },
+      paneSizes:
+        parsed.paneSizes && typeof parsed.paneSizes === "object"
+          ? { ...parsed.paneSizes }
+          : {},
     };
   } catch {
     return { ...DEFAULT_LAYOUT };
@@ -173,12 +259,16 @@ function persist(state: LayoutState) {
     terminalVisible: state.terminalVisible,
     documentationVisible: state.documentationVisible,
     outputVisible: state.outputVisible,
+    gitHistoryVisible: state.gitHistoryVisible,
+    editorVisible: state.editorVisible,
     sidebarSide: state.sidebarSide,
     panelPosition: state.panelPosition,
     docsPosition: state.docsPosition,
     outputPosition: state.outputPosition,
+    gitHistoryPosition: state.gitHistoryPosition,
     maximized: state.maximized,
     minimized: state.minimized,
+    paneSizes: state.paneSizes,
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -193,6 +283,8 @@ function clearMinimized(): LayoutState["minimized"] {
     terminal: false,
     documentation: false,
     output: false,
+    gitHistory: false,
+    editor: false,
   };
 }
 
@@ -289,6 +381,38 @@ function applySnapToState(
     };
   }
 
+  if (pane === "gitHistory") {
+    if (zone === "bottom") {
+      return {
+        gitHistoryVisible: true,
+        gitHistoryPosition: "bottom",
+        maximized: null,
+        minimized: { ...state.minimized, gitHistory: false },
+      };
+    }
+    if (zone === "left" || zone === "center-left") {
+      return {
+        gitHistoryVisible: true,
+        gitHistoryPosition: "left",
+        maximized: null,
+        minimized: { ...state.minimized, gitHistory: false },
+      };
+    }
+    if (zone === "right" || zone === "center-right") {
+      return {
+        gitHistoryVisible: true,
+        gitHistoryPosition: "right",
+        maximized: null,
+        minimized: { ...state.minimized, gitHistory: false },
+      };
+    }
+    return {
+      gitHistoryVisible: true,
+      maximized: null,
+      minimized: { ...state.minimized, gitHistory: false },
+    };
+  }
+
   // terminal
   if (zone === "bottom") {
     return {
@@ -321,12 +445,12 @@ function applySnapToState(
   };
 }
 
-function visibilityPatchForMinimize(
-  pane: DockablePane
-): Partial<LayoutState> {
+function visibilityPatchForMinimize(pane: PaneId): Partial<LayoutState> {
   if (pane === "explorer") return { sidebarVisible: true };
   if (pane === "terminal") return { terminalVisible: true };
   if (pane === "documentation") return { documentationVisible: true };
+  if (pane === "gitHistory") return { gitHistoryVisible: true };
+  if (pane === "editor") return { editorVisible: true };
   return { outputVisible: true };
 }
 
@@ -425,6 +549,36 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     });
   },
 
+  toggleGitHistory: () => {
+    set((s) => {
+      const next = {
+        ...s,
+        gitHistoryVisible: !s.gitHistoryVisible,
+        maximized: s.maximized === "gitHistory" ? null : s.maximized,
+        minimized: s.gitHistoryVisible
+          ? s.minimized
+          : { ...s.minimized, gitHistory: false },
+      };
+      persist(next);
+      return next;
+    });
+  },
+
+  toggleEditor: () => {
+    set((s) => {
+      const next = {
+        ...s,
+        editorVisible: !s.editorVisible,
+        maximized: s.maximized === "editor" ? null : s.maximized,
+        minimized: s.editorVisible
+          ? s.minimized
+          : { ...s.minimized, editor: false },
+      };
+      persist(next);
+      return next;
+    });
+  },
+
   setSidebarVisible: (visible) => {
     set((s) => {
       const next = {
@@ -484,6 +638,35 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     });
   },
 
+  setGitHistoryVisible: (visible) => {
+    set((s) => {
+      const next = {
+        ...s,
+        gitHistoryVisible: visible,
+        maximized:
+          !visible && s.maximized === "gitHistory" ? null : s.maximized,
+        minimized: visible
+          ? { ...s.minimized, gitHistory: false }
+          : s.minimized,
+      };
+      persist(next);
+      return next;
+    });
+  },
+
+  setEditorVisible: (visible) => {
+    set((s) => {
+      const next = {
+        ...s,
+        editorVisible: visible,
+        maximized: !visible && s.maximized === "editor" ? null : s.maximized,
+        minimized: visible ? { ...s.minimized, editor: false } : s.minimized,
+      };
+      persist(next);
+      return next;
+    });
+  },
+
   revealDocumentation: () => {
     set((s) => {
       const next = {
@@ -505,6 +688,32 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         outputVisible: true,
         maximized: s.maximized === "output" ? s.maximized : null,
         minimized: { ...s.minimized, output: false },
+      };
+      persist(next);
+      return next;
+    });
+  },
+
+  revealGitHistory: () => {
+    set((s) => {
+      const next = {
+        ...s,
+        gitHistoryVisible: true,
+        maximized: s.maximized === "gitHistory" ? s.maximized : null,
+        minimized: { ...s.minimized, gitHistory: false },
+      };
+      persist(next);
+      return next;
+    });
+  },
+
+  revealEditor: () => {
+    set((s) => {
+      const next = {
+        ...s,
+        editorVisible: true,
+        maximized: s.maximized === "editor" ? s.maximized : null,
+        minimized: { ...s.minimized, editor: false },
       };
       persist(next);
       return next;
@@ -558,6 +767,19 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     });
   },
 
+  setGitHistoryPosition: (position) => {
+    set((s) => {
+      const next = {
+        ...s,
+        gitHistoryPosition: position,
+        gitHistoryVisible: true,
+        minimized: { ...s.minimized, gitHistory: false },
+      };
+      persist(next);
+      return next;
+    });
+  },
+
   maximizePane: (pane) => {
     set((s) => {
       const next = {
@@ -592,11 +814,15 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   minimizePane: (pane) => {
+    const captured = capturePaneSize(pane);
     set((s) => {
       const next = {
         ...s,
         maximized: s.maximized === pane ? null : s.maximized,
         minimized: { ...s.minimized, [pane]: true },
+        paneSizes: captured
+          ? { ...s.paneSizes, [pane]: captured }
+          : s.paneSizes,
         ...visibilityPatchForMinimize(pane),
       };
       persist(next);
@@ -609,6 +835,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const next = {
         ...s,
         minimized: { ...s.minimized, [pane]: false },
+        ...visibilityPatchForMinimize(pane),
       };
       persist(next);
       return next;
@@ -616,7 +843,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   closePane: (pane) => {
-    if (pane === "editor") return;
     set((s) => {
       let next: LayoutState = s;
       if (pane === "explorer") {
@@ -625,6 +851,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
           sidebarVisible: false,
           maximized: s.maximized === "explorer" ? null : s.maximized,
           minimized: { ...s.minimized, explorer: false },
+        };
+      } else if (pane === "editor") {
+        next = {
+          ...s,
+          editorVisible: false,
+          maximized: s.maximized === "editor" ? null : s.maximized,
+          minimized: { ...s.minimized, editor: false },
         };
       } else if (pane === "terminal") {
         next = {
@@ -646,6 +879,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
           outputVisible: false,
           maximized: s.maximized === "output" ? null : s.maximized,
           minimized: { ...s.minimized, output: false },
+        };
+      } else if (pane === "gitHistory") {
+        next = {
+          ...s,
+          gitHistoryVisible: false,
+          maximized: s.maximized === "gitHistory" ? null : s.maximized,
+          minimized: { ...s.minimized, gitHistory: false },
         };
       }
       persist(next);

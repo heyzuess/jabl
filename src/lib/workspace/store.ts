@@ -33,6 +33,7 @@ import {
   writeFileInDirectory,
 } from "./fs-access";
 import { useEditorLayoutStore } from "./editor-layout-store";
+import { useLayoutStore } from "./layout-store";
 import type { DiffTabView, FileNode, FsMode, OpenTab } from "./types";
 import {
   diffTabTitle,
@@ -42,6 +43,10 @@ import {
 
 function editorLayout() {
   return useEditorLayoutStore.getState();
+}
+
+function ensureEditorVisible() {
+  useLayoutStore.getState().revealEditor();
 }
 
 function notifyGitRefresh() {
@@ -639,6 +644,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       activePath: path,
       statusMessage: `Opened ${node.name}`,
     });
+    ensureEditorVisible();
     editorLayout().openInFocusedGroup(path);
   },
 
@@ -660,6 +666,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       activePath: path,
       statusMessage: `Diff: ${tab.name}`,
     });
+    ensureEditorVisible();
     editorLayout().openInFocusedGroup(path);
   },
 

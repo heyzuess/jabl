@@ -13,6 +13,7 @@ import {
   FolderGit2,
   GitBranch,
   GitMerge,
+  History,
   Minus,
   MoreHorizontal,
   Plus,
@@ -45,12 +46,7 @@ import { useLayoutStore } from "@/lib/workspace/layout-store";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import { useGitStore } from "@/lib/git/store";
 import { DEFAULT_CORS_PROXY } from "@/lib/git/credentials";
-import type {
-  GitChange,
-  GitCommitFileChange,
-  GitCommitInfo,
-  GitResetMode,
-} from "@/lib/git/types";
+import type { GitChange, GitCommitFileChange } from "@/lib/git/types";
 
 function statusLetter(status: GitChange["status"]): string {
   if (status === "added") return "A";
@@ -294,17 +290,6 @@ function Section({
   );
 }
 
-function relativeTime(ts: number): string {
-  const sec = Math.round((Date.now() - ts) / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 48) return `${hr}h ago`;
-  const days = Math.round(hr / 24);
-  return `${days}d ago`;
-}
-
 function commitFileLetter(status: GitCommitFileChange["status"]): string {
   if (status === "added") return "A";
   if (status === "deleted") return "D";
@@ -349,141 +334,9 @@ function CommitFileRow({
   );
 }
 
-function CommitRow({
-  commit,
-  expanded,
-  files,
-  selectedForCompare,
-  canCompareWithSelected,
-  onToggle,
-  onOpenFile,
-  onRevert,
-  onCherryPick,
-  onReset,
-  onCreateTag,
-  onSelectForCompare,
-  onCompareWithSelected,
-}: {
-  commit: GitCommitInfo;
-  expanded: boolean;
-  files: GitCommitFileChange[];
-  selectedForCompare: boolean;
-  canCompareWithSelected: boolean;
-  onToggle: () => void;
-  onOpenFile: (filepath: string) => void;
-  onRevert: () => void;
-  onCherryPick: () => void;
-  onReset: (mode: GitResetMode) => void;
-  onCreateTag: () => void;
-  onSelectForCompare: () => void;
-  onCompareWithSelected: () => void;
-}) {
-  return (
-    <div className="mb-1">
-      <div className="group flex items-start gap-0.5">
-        <button
-          type="button"
-          className={cn(
-            "flex min-w-0 flex-1 items-start gap-1 rounded-sm px-1 py-1 text-left text-xs hover:bg-accent/60",
-            selectedForCompare && "bg-accent/50 ring-1 ring-border"
-          )}
-          onClick={onToggle}
-          title={commit.message}
-        >
-          {expanded ? (
-            <ChevronDown className="mt-0.5 size-3 shrink-0 opacity-70" />
-          ) : (
-            <ChevronRight className="mt-0.5 size-3 shrink-0 opacity-70" />
-          )}
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium">
-              {selectedForCompare ? (
-                <span className="mr-1 text-[10px] font-normal text-muted-foreground">
-                  Compare
-                </span>
-              ) : null}
-              {commit.subject}
-            </span>
-            <span className="block font-mono text-[10px] text-muted-foreground">
-              {commit.shortOid} · {commit.authorName} ·{" "}
-              {relativeTime(commit.authorDate)}
-            </span>
-          </span>
-        </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <button
-                type="button"
-                title="Commit actions"
-                aria-label="Commit actions"
-                className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded opacity-0 hover:bg-accent group-hover:opacity-100 focus-visible:opacity-100"
-              />
-            }
-          >
-            <MoreHorizontal className="size-3" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-44">
-            <DropdownMenuItem onClick={onSelectForCompare}>
-              Select for Compare
-            </DropdownMenuItem>
-            {canCompareWithSelected ? (
-              <DropdownMenuItem onClick={onCompareWithSelected}>
-                Compare with Selected
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onCherryPick}>
-              Cherry-pick…
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onRevert}>Revert…</DropdownMenuItem>
-            <DropdownMenuItem onClick={onCreateTag}>
-              Create Tag…
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Reset current branch</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => onReset("soft")}>
-                Reset Soft…
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onReset("mixed")}>
-                Reset Mixed…
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => onReset("hard")}
-              >
-                Reset Hard…
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      {expanded && (
-        <div className="ml-4 border-l border-border pl-2">
-          {files.length === 0 ? (
-            <p className="px-1 py-0.5 text-[10px] text-muted-foreground">
-              No file changes
-            </p>
-          ) : (
-            files.map((change) => (
-              <CommitFileRow
-                key={change.filepath}
-                change={change}
-                title={`${change.status} · compare with previous · ${change.filepath}`}
-                onOpen={() => onOpenFile(change.filepath)}
-              />
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function SourceControlPane() {
-  const minimized = useLayoutStore((s) => s.minimized.explorer);
   const setSidebarView = useLayoutStore((s) => s.setSidebarView);
+  const revealGitHistory = useLayoutStore((s) => s.revealGitHistory);
   const openFile = useWorkspaceStore((s) => s.openFile);
   const fsMode = useWorkspaceStore((s) => s.mode);
   const rootName = useWorkspaceStore((s) => s.rootName);
@@ -495,8 +348,6 @@ export function SourceControlPane() {
   const tags = useGitStore((s) => s.tags);
   const commits = useGitStore((s) => s.commits);
   const stashes = useGitStore((s) => s.stashes);
-  const commitFiles = useGitStore((s) => s.commitFiles);
-  const expandedCommitOid = useGitStore((s) => s.expandedCommitOid);
   const staged = useGitStore((s) => s.staged);
   const unstaged = useGitStore((s) => s.unstaged);
   const untracked = useGitStore((s) => s.untracked);
@@ -522,24 +373,17 @@ export function SourceControlPane() {
   const mergeBranch = useGitStore((s) => s.mergeBranch);
   const abortMerge = useGitStore((s) => s.abortMerge);
   const resolveConflict = useGitStore((s) => s.resolveConflict);
-  const expandCommit = useGitStore((s) => s.expandCommit);
   const compareBaseOid = useGitStore((s) => s.compareBaseOid);
   const compareResult = useGitStore((s) => s.compareResult);
-  const selectForCompare = useGitStore((s) => s.selectForCompare);
   const clearCompare = useGitStore((s) => s.clearCompare);
-  const compareWithSelected = useGitStore((s) => s.compareWithSelected);
   const openWorkingDiff = useGitStore((s) => s.openWorkingDiff);
   const openStagedDiff = useGitStore((s) => s.openStagedDiff);
-  const openCommitDiff = useGitStore((s) => s.openCommitDiff);
   const openCompareDiff = useGitStore((s) => s.openCompareDiff);
   const initRepo = useGitStore((s) => s.initRepo);
   const stashPush = useGitStore((s) => s.stashPush);
   const stashPop = useGitStore((s) => s.stashPop);
   const stashApply = useGitStore((s) => s.stashApply);
   const stashDrop = useGitStore((s) => s.stashDrop);
-  const revertCommit = useGitStore((s) => s.revertCommit);
-  const cherryPick = useGitStore((s) => s.cherryPick);
-  const resetToCommit = useGitStore((s) => s.resetToCommit);
   const createTag = useGitStore((s) => s.createTag);
   const deleteTag = useGitStore((s) => s.deleteTag);
   const checkoutTag = useGitStore((s) => s.checkoutTag);
@@ -648,18 +492,6 @@ export function SourceControlPane() {
     }
   };
 
-  const confirmReset = (oid: string, mode: GitResetMode) => {
-    const short = oid.slice(0, 7);
-    const msg =
-      mode === "hard"
-        ? `Hard reset to ${short}? This discards all uncommitted changes in the working tree and index.`
-        : mode === "mixed"
-          ? `Mixed reset to ${short}? Keeps working tree; resets the index.`
-          : `Soft reset to ${short}? Moves HEAD only; keeps index and working tree.`;
-    if (!window.confirm(msg)) return;
-    void resetToCommit(oid, mode).catch(() => undefined);
-  };
-
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--ide-sidebar)]">
       <PaneChrome
@@ -667,6 +499,15 @@ export function SourceControlPane() {
         title="Source Control"
         actions={
           <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              title="Git History"
+              aria-label="Show Git History"
+              className="inline-flex size-6 items-center justify-center rounded hover:bg-accent"
+              onClick={() => revealGitHistory()}
+            >
+              <History className="size-3.5" />
+            </button>
             <button
               type="button"
               title="Explorer"
@@ -690,1097 +531,1097 @@ export function SourceControlPane() {
         }
       />
 
-      {minimized ? (
-        <div className="flex flex-1 items-center px-3 text-xs text-muted-foreground">
-          Source Control (minimized)
-        </div>
-      ) : (
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-3 p-2">
-            <div className="space-y-1.5 px-1">
-              <DropdownMenu
-                open={branchMenuOpen}
-                onOpenChange={(open) => {
-                  setBranchMenuOpen(open);
-                  if (open) void refresh();
-                }}
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-3 p-2">
+          <div className="space-y-1.5 px-1">
+            <DropdownMenu
+              open={branchMenuOpen}
+              onOpenChange={(open) => {
+                setBranchMenuOpen(open);
+                if (open) void refresh();
+              }}
+            >
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 min-w-0 w-full justify-start gap-1.5 px-1.5 text-xs"
+                    disabled={!available}
+                  />
+                }
               >
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 min-w-0 w-full justify-start gap-1.5 px-1.5 text-xs"
-                      disabled={!available}
-                    />
-                  }
-                >
-                  <GitBranch className="size-3.5 shrink-0" />
-                  <span className="truncate font-mono">
-                    {available ? (branch ?? "HEAD") : "—"}
-                    {merging ? " (merging)" : ""}
-                  </span>
-                  <ChevronDown className="ml-auto size-3 opacity-70" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-56">
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>Branches</DropdownMenuLabel>
-                    {branches.length === 0 ? (
-                      <DropdownMenuItem disabled>
-                        No local branches found
-                      </DropdownMenuItem>
-                    ) : (
-                      branches.map((b) => (
-                        <DropdownMenuItem
-                          key={b}
-                          disabled={b === branch}
-                          closeOnClick={b !== branch}
-                          onClick={() => {
-                            if (b === branch) return;
-                            void checkoutBranch(b).catch(() => undefined);
-                          }}
-                        >
-                          <span className="font-mono text-xs">
-                            {b === branch ? `* ${b}` : b}
-                          </span>
-                        </DropdownMenuItem>
-                      ))
-                    )}
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      disabled={busy}
-                      onClick={() => {
-                        setCreatingBranch(true);
-                        setBranchMenuOpen(false);
-                      }}
-                    >
-                      <Plus className="size-3.5" />
-                      Create branch…
+                <GitBranch className="size-3.5 shrink-0" />
+                <span className="truncate font-mono">
+                  {available ? (branch ?? "HEAD") : "—"}
+                  {merging ? " (merging)" : ""}
+                </span>
+                <ChevronDown className="ml-auto size-3 opacity-70" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-56">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Branches</DropdownMenuLabel>
+                  {branches.length === 0 ? (
+                    <DropdownMenuItem disabled>
+                      No local branches found
                     </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>Merge into current</DropdownMenuLabel>
-                    {branches
-                      .filter((b) => b !== branch)
-                      .map((b) => (
-                        <DropdownMenuItem
-                          key={`merge-${b}`}
-                          disabled={busy || merging}
-                          onClick={() => {
-                            if (
-                              !window.confirm(
-                                `Merge branch "${b}" into "${branch}"?`
-                              )
-                            ) {
-                              return;
-                            }
-                            void mergeBranch(b).catch(() => undefined);
-                          }}
-                        >
-                          <GitMerge className="size-3.5" />
-                          <span className="font-mono text-xs">{b}</span>
-                        </DropdownMenuItem>
-                      ))}
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>Tags</DropdownMenuLabel>
-                    {tags.length === 0 ? (
-                      <DropdownMenuItem disabled>No tags</DropdownMenuItem>
-                    ) : (
-                      tags.map((t) => (
-                        <DropdownMenuItem
-                          key={`tag-${t}`}
-                          disabled={busy}
-                          onClick={() => {
-                            if (
-                              !window.confirm(
-                                `Checkout tag "${t}"? (detached HEAD)`
-                              )
-                            ) {
-                              return;
-                            }
-                            void checkoutTag(t).catch(() => undefined);
-                          }}
-                        >
-                          <Tag className="size-3.5" />
-                          <span className="font-mono text-xs">{t}</span>
-                        </DropdownMenuItem>
-                      ))
-                    )}
-                    <DropdownMenuItem
-                      disabled={busy}
-                      onClick={() => {
-                        setTagObject(undefined);
-                        setCreatingTag(true);
-                        setBranchMenuOpen(false);
-                      }}
-                    >
-                      <Plus className="size-3.5" />
-                      Create tag…
-                    </DropdownMenuItem>
-                    {tags.map((t) => (
+                  ) : (
+                    branches.map((b) => (
                       <DropdownMenuItem
-                        key={`deltag-${t}`}
+                        key={b}
+                        disabled={b === branch}
+                        closeOnClick={b !== branch}
+                        onClick={() => {
+                          if (b === branch) return;
+                          void checkoutBranch(b).catch(() => undefined);
+                        }}
+                      >
+                        <span className="font-mono text-xs">
+                          {b === branch ? `* ${b}` : b}
+                        </span>
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    disabled={busy}
+                    onClick={() => {
+                      setCreatingBranch(true);
+                      setBranchMenuOpen(false);
+                    }}
+                  >
+                    <Plus className="size-3.5" />
+                    Create branch…
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Merge into current</DropdownMenuLabel>
+                  {branches
+                    .filter((b) => b !== branch)
+                    .map((b) => (
+                      <DropdownMenuItem
+                        key={`merge-${b}`}
+                        disabled={busy || merging}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Merge branch "${b}" into "${branch}"?`
+                            )
+                          ) {
+                            return;
+                          }
+                          void mergeBranch(b).catch(() => undefined);
+                        }}
+                      >
+                        <GitMerge className="size-3.5" />
+                        <span className="font-mono text-xs">{b}</span>
+                      </DropdownMenuItem>
+                    ))}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Tags</DropdownMenuLabel>
+                  {tags.length === 0 ? (
+                    <DropdownMenuItem disabled>No tags</DropdownMenuItem>
+                  ) : (
+                    tags.map((t) => (
+                      <DropdownMenuItem
+                        key={`tag-${t}`}
+                        disabled={busy}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Checkout tag "${t}"? (detached HEAD)`
+                            )
+                          ) {
+                            return;
+                          }
+                          void checkoutTag(t).catch(() => undefined);
+                        }}
+                      >
+                        <Tag className="size-3.5" />
+                        <span className="font-mono text-xs">{t}</span>
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                  <DropdownMenuItem
+                    disabled={busy}
+                    onClick={() => {
+                      setTagObject(undefined);
+                      setCreatingTag(true);
+                      setBranchMenuOpen(false);
+                    }}
+                  >
+                    <Plus className="size-3.5" />
+                    Create tag…
+                  </DropdownMenuItem>
+                  {tags.map((t) => (
+                    <DropdownMenuItem
+                      key={`deltag-${t}`}
+                      disabled={busy}
+                      className="text-destructive"
+                      onClick={() => {
+                        if (!window.confirm(`Delete tag "${t}"?`)) return;
+                        void deleteTag(t).catch(() => undefined);
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                      <span className="font-mono text-xs">Delete {t}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Delete branch</DropdownMenuLabel>
+                  {branches
+                    .filter((b) => b !== branch)
+                    .map((b) => (
+                      <DropdownMenuItem
+                        key={`del-${b}`}
                         disabled={busy}
                         className="text-destructive"
                         onClick={() => {
-                          if (!window.confirm(`Delete tag "${t}"?`)) return;
-                          void deleteTag(t).catch(() => undefined);
+                          if (!window.confirm(`Delete branch "${b}"?`)) {
+                            return;
+                          }
+                          void deleteBranch(b).catch(() => undefined);
                         }}
                       >
                         <Trash2 className="size-3.5" />
-                        <span className="font-mono text-xs">Delete {t}</span>
+                        <span className="font-mono text-xs">{b}</span>
                       </DropdownMenuItem>
                     ))}
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>Delete branch</DropdownMenuLabel>
-                    {branches
-                      .filter((b) => b !== branch)
-                      .map((b) => (
-                        <DropdownMenuItem
-                          key={`del-${b}`}
-                          disabled={busy}
-                          className="text-destructive"
-                          onClick={() => {
-                            if (!window.confirm(`Delete branch "${b}"?`)) {
-                              return;
-                            }
-                            void deleteBranch(b).catch(() => undefined);
-                          }}
-                        >
-                          <Trash2 className="size-3.5" />
-                          <span className="font-mono text-xs">{b}</span>
-                        </DropdownMenuItem>
-                      ))}
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-              {available && (
-                <div className="flex flex-wrap items-center gap-1 px-0.5">
+            {available && (
+              <div className="flex flex-wrap items-center gap-1 px-0.5">
+                {aheadBehind.upstream ? (
+                  <span
+                    className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground"
+                    title={`Upstream ${aheadBehind.upstream.remote}/${aheadBehind.upstream.remoteBranch}`}
+                  >
+                    <span className="inline-flex items-center gap-0.5">
+                      <ArrowUp className="size-2.5" />
+                      {aheadBehind.ahead}
+                    </span>
+                    <span className="inline-flex items-center gap-0.5">
+                      <ArrowDown className="size-2.5" />
+                      {aheadBehind.behind}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">
+                    No upstream
+                  </span>
+                )}
+                <div className="ml-auto flex items-center gap-0.5">
                   {aheadBehind.upstream ? (
-                    <span
-                      className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground"
-                      title={`Upstream ${aheadBehind.upstream.remote}/${aheadBehind.upstream.remoteBranch}`}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-1.5 text-[10px]"
+                      disabled={busy}
+                      title="Fetch, then pull or push"
+                      onClick={() =>
+                        void syncRemote().catch(() => undefined)
+                      }
                     >
-                      <span className="inline-flex items-center gap-0.5">
-                        <ArrowUp className="size-2.5" />
-                        {aheadBehind.ahead}
-                      </span>
-                      <span className="inline-flex items-center gap-0.5">
-                        <ArrowDown className="size-2.5" />
-                        {aheadBehind.behind}
-                      </span>
-                    </span>
+                      <CloudUpload className="size-3" />
+                      Sync
+                    </Button>
                   ) : (
-                    <span className="text-[10px] text-muted-foreground">
-                      No upstream
-                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-1.5 text-[10px]"
+                      disabled={busy || remotes.length === 0}
+                      title="Push and set upstream"
+                      onClick={() =>
+                        void publishBranch(
+                          remotes[0]?.remote ?? "origin"
+                        ).catch(() => undefined)
+                      }
+                    >
+                      <CloudUpload className="size-3" />
+                      Publish
+                    </Button>
                   )}
-                  <div className="ml-auto flex items-center gap-0.5">
-                    {aheadBehind.upstream ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 gap-1 px-1.5 text-[10px]"
-                        disabled={busy}
-                        title="Fetch, then pull or push"
-                        onClick={() =>
-                          void syncRemote().catch(() => undefined)
-                        }
-                      >
-                        <CloudUpload className="size-3" />
-                        Sync
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 gap-1 px-1.5 text-[10px]"
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1 text-[10px]"
+                          disabled={busy}
+                        />
+                      }
+                    >
+                      ⋯
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-36">
+                      <DropdownMenuItem
                         disabled={busy || remotes.length === 0}
-                        title="Push and set upstream"
                         onClick={() =>
-                          void publishBranch(
-                            remotes[0]?.remote ?? "origin"
+                          void fetchRemote(
+                            aheadBehind.upstream?.remote ??
+                              remotes[0]?.remote ??
+                              "origin"
                           ).catch(() => undefined)
                         }
                       >
-                        <CloudUpload className="size-3" />
-                        Publish
-                      </Button>
-                    )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-1 text-[10px]"
-                            disabled={busy}
-                          />
+                        Fetch
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={busy || remotes.length === 0}
+                        onClick={() =>
+                          void pullRemote(
+                            aheadBehind.upstream?.remote
+                          ).catch(() => undefined)
                         }
                       >
-                        ⋯
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="min-w-36">
-                        <DropdownMenuItem
-                          disabled={busy || remotes.length === 0}
-                          onClick={() =>
-                            void fetchRemote(
-                              aheadBehind.upstream?.remote ??
-                                remotes[0]?.remote ??
-                                "origin"
-                            ).catch(() => undefined)
-                          }
-                        >
-                          Fetch
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={busy || remotes.length === 0}
-                          onClick={() =>
-                            void pullRemote(
-                              aheadBehind.upstream?.remote
-                            ).catch(() => undefined)
-                          }
-                        >
-                          Pull
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={busy || remotes.length === 0}
-                          onClick={() =>
-                            void pushBranch().catch(() => undefined)
-                          }
-                        >
-                          Push
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                        Pull
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={busy || remotes.length === 0}
+                        onClick={() =>
+                          void pushBranch().catch(() => undefined)
+                        }
+                      >
+                        Push
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-              )}
-
-              {progress && (
-                <p className="px-0.5 text-[10px] text-muted-foreground">
-                  {progress}
-                </p>
-              )}
-
-              {creatingBranch && available && (
-                <div className="space-y-1 rounded border border-border bg-background/60 p-1.5">
-                  <input
-                    autoFocus
-                    className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
-                    placeholder="New branch name"
-                    value={newBranchName}
-                    onChange={(e) => setNewBranchName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void handleCreateBranch();
-                      }
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        setCreatingBranch(false);
-                        setNewBranchName("");
-                      }
-                    }}
-                  />
-                  <div className="flex gap-1">
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="h-6 flex-1 text-[10px]"
-                      disabled={!newBranchName.trim() || busy}
-                      onClick={() => void handleCreateBranch()}
-                    >
-                      Create & Checkout
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-[10px]"
-                      onClick={() => {
-                        setCreatingBranch(false);
-                        setNewBranchName("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {creatingTag && available && (
-                <div className="space-y-1 rounded border border-border bg-background/60 p-1.5">
-                  <input
-                    autoFocus
-                    className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
-                    placeholder="Tag name"
-                    value={newTagName}
-                    onChange={(e) => setNewTagName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void handleCreateTag();
-                      }
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        setCreatingTag(false);
-                        setNewTagName("");
-                        setTagObject(undefined);
-                      }
-                    }}
-                  />
-                  {tagObject && (
-                    <p className="px-0.5 font-mono text-[10px] text-muted-foreground">
-                      on {tagObject.slice(0, 7)}
-                    </p>
-                  )}
-                  <div className="flex gap-1">
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="h-6 flex-1 text-[10px]"
-                      disabled={!newTagName.trim() || busy}
-                      onClick={() => void handleCreateTag()}
-                    >
-                      Create Tag
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-[10px]"
-                      onClick={() => {
-                        setCreatingTag(false);
-                        setNewTagName("");
-                        setTagObject(undefined);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {error && available && (
-              <p className="px-1 text-xs text-destructive">{error}</p>
+              </div>
             )}
 
-            {!available && (
-              <div className="space-y-2 px-1">
-                {canInitialize ? (
-                  <>
-                    <p className="text-xs text-muted-foreground">
-                      This folder is not a git repository yet.
+            {progress && (
+              <p className="px-0.5 text-[10px] text-muted-foreground">
+                {progress}
+              </p>
+            )}
+
+            {creatingBranch && available && (
+              <div className="space-y-1 rounded border border-border bg-background/60 p-1.5">
+                <input
+                  autoFocus
+                  className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
+                  placeholder="New branch name"
+                  value={newBranchName}
+                  onChange={(e) => setNewBranchName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleCreateBranch();
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setCreatingBranch(false);
+                      setNewBranchName("");
+                    }
+                  }}
+                />
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-6 flex-1 text-[10px]"
+                    disabled={!newBranchName.trim() || busy}
+                    onClick={() => void handleCreateBranch()}
+                  >
+                    Create & Checkout
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => {
+                      setCreatingBranch(false);
+                      setNewBranchName("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {creatingTag && available && (
+              <div className="space-y-1 rounded border border-border bg-background/60 p-1.5">
+                <input
+                  autoFocus
+                  className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
+                  placeholder="Tag name"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleCreateTag();
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setCreatingTag(false);
+                      setNewTagName("");
+                      setTagObject(undefined);
+                    }
+                  }}
+                />
+                {tagObject && (
+                  <p className="px-0.5 font-mono text-[10px] text-muted-foreground">
+                    on {tagObject.slice(0, 7)}
+                  </p>
+                )}
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-6 flex-1 text-[10px]"
+                    disabled={!newTagName.trim() || busy}
+                    onClick={() => void handleCreateTag()}
+                  >
+                    Create Tag
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px]"
+                    onClick={() => {
+                      setCreatingTag(false);
+                      setNewTagName("");
+                      setTagObject(undefined);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {error && available && (
+            <p className="px-1 text-xs text-destructive">{error}</p>
+          )}
+
+          {!available && (
+            <div className="space-y-2 px-1">
+              {canInitialize ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    This folder is not a git repository yet.
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 w-full gap-1.5 text-xs"
+                    disabled={busy}
+                    onClick={() =>
+                      void initRepo("main").catch(() => undefined)
+                    }
+                  >
+                    <FolderGit2 className="size-3.5" />
+                    Initialize Repository
+                  </Button>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {error ||
+                    "Open a local folder with File System Access to use Source Control."}
+                </p>
+              )}
+              <div className="space-y-1.5 border-t border-border pt-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Clone Repository
+                </p>
+                {showClone ? (
+                  <div className="space-y-1">
+                    <input
+                      autoFocus
+                      className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
+                      placeholder="https://github.com/org/repo.git"
+                      value={cloneUrl}
+                      onChange={(e) => setCloneUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const url = cloneUrl.trim();
+                          if (!url) return;
+                          void cloneRepository(url)
+                            .then(() => {
+                              setCloneUrl("");
+                              setShowClone(false);
+                            })
+                            .catch(() => undefined);
+                        }
+                        if (e.key === "Escape") {
+                          setShowClone(false);
+                          setCloneUrl("");
+                        }
+                      }}
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      HTTPS only. You will pick an empty folder. CORS proxy:{" "}
+                      {corsProxy || DEFAULT_CORS_PROXY}
                     </p>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-6 flex-1 text-[10px]"
+                        disabled={busy || !cloneUrl.trim()}
+                        onClick={() => {
+                          const url = cloneUrl.trim();
+                          if (!url) return;
+                          void cloneRepository(url)
+                            .then(() => {
+                              setCloneUrl("");
+                              setShowClone(false);
+                            })
+                            .catch(() => undefined);
+                        }}
+                      >
+                        Clone…
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => {
+                          setShowClone(false);
+                          setCloneUrl("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 w-full text-xs"
+                    disabled={busy}
+                    onClick={() => setShowClone(true)}
+                  >
+                    Clone Repository…
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {available && (
+            <>
+              {merging && (
+                <div className="space-y-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                    Merge in progress
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Resolve conflicts, then Commit (or Abort Merge).
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-6 w-full text-[10px]"
+                    disabled={busy}
+                    onClick={() => {
+                      if (!window.confirm("Abort the current merge?")) return;
+                      void abortMerge().catch(() => undefined);
+                    }}
+                  >
+                    Abort Merge
+                  </Button>
+                </div>
+              )}
+
+              <div className="space-y-1.5 px-1">
+                <textarea
+                  className="min-h-[64px] w-full resize-y rounded border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
+                  placeholder={
+                    merging ? "Merge commit message (optional)" : "Commit message"
+                  }
+                  value={commitMessage}
+                  onChange={(e) => setCommitMessage(e.target.value)}
+                />
+                {(!authorName.trim() || !authorEmail.trim()) && (
+                  <div className="grid gap-1">
+                    <input
+                      className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
+                      placeholder="Author name"
+                      value={authorName}
+                      onChange={(e) => setAuthorName(e.target.value)}
+                    />
+                    <input
+                      className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
+                      placeholder="Author email"
+                      value={authorEmail}
+                      onChange={(e) => setAuthorEmail(e.target.value)}
+                    />
+                  </div>
+                )}
+                {!merging && (
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                    <label className="inline-flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={amend}
+                        onChange={(e) => setAmend(e.target.checked)}
+                      />
+                      Amend
+                    </label>
+                    <button
+                      type="button"
+                      className="hover:text-foreground"
+                      disabled={busy || commits.length === 0}
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            "Undo last commit (soft reset)? Changes stay staged."
+                          )
+                        ) {
+                          return;
+                        }
+                        void undoLastCommit().catch(() => undefined);
+                      }}
+                    >
+                      Undo Last Commit
+                    </button>
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 w-full gap-1 text-xs"
+                  disabled={!canCommit}
+                  onClick={() =>
+                    void commit(undefined, { amend })
+                      .then(() => setAmend(false))
+                      .catch(() => undefined)
+                  }
+                >
+                  <Check className="size-3.5" />
+                  {merging
+                    ? "Commit Merge"
+                    : amend
+                      ? "Amend Commit"
+                      : staged.length === 0 && hasSomethingToCommit
+                        ? "Commit All"
+                        : "Commit"}
+                </Button>
+              </div>
+
+              <Section
+                id="conflicts"
+                title="Merge Conflicts"
+                count={conflicts.length}
+                collapsedMap={collapsedMap}
+                onToggle={toggleSection}
+              >
+                {conflicts.map((c) => (
+                  <ConflictRow
+                    key={`c-${c.filepath}`}
+                    change={c}
+                    onOpenFile={() => void openFile(c.workspacePath)}
+                    onAccept={(mode) =>
+                      void resolveConflict(c.filepath, mode).catch(
+                        () => undefined
+                      )
+                    }
+                  />
+                ))}
+              </Section>
+
+              <Section
+                id="staged"
+                title="Staged"
+                count={staged.length}
+                collapsedMap={collapsedMap}
+                onToggle={toggleSection}
+                actions={
+                  <button
+                    type="button"
+                    title="Unstage all"
+                    className="text-[10px] text-muted-foreground hover:text-foreground"
+                    onClick={() => void unstageAllChanges()}
+                  >
+                    Unstage All
+                  </button>
+                }
+              >
+                {staged.map((c) => (
+                  <ChangeRow
+                    key={`s-${c.filepath}`}
+                    change={c}
+                    actionLabel="Unstage"
+                    onAction={() => void unstage([c.filepath])}
+                    onOpenDiff={() => void openStagedDiff(c.filepath)}
+                    onOpenFile={() => void openFile(c.workspacePath)}
+                  />
+                ))}
+              </Section>
+
+              <Section
+                id="changes"
+                title="Changes"
+                count={unstaged.length}
+                collapsedMap={collapsedMap}
+                onToggle={toggleSection}
+                actions={
+                  <button
+                    type="button"
+                    title="Stage all changes"
+                    className="text-[10px] text-muted-foreground hover:text-foreground"
+                    onClick={() => void stageAllChanges()}
+                  >
+                    Stage All
+                  </button>
+                }
+              >
+                {unstaged.map((c) => (
+                  <ChangeRow
+                    key={`u-${c.filepath}`}
+                    change={c}
+                    actionLabel="Stage"
+                    onAction={() => void stage([c.filepath])}
+                    onOpenDiff={() => void openWorkingDiff(c.filepath)}
+                    onOpenFile={() => void openFile(c.workspacePath)}
+                    onDiscard={() => {
+                      if (
+                        !window.confirm(
+                          `Discard changes to "${c.filepath}"? This cannot be undone.`
+                        )
+                      ) {
+                        return;
+                      }
+                      void discardChanges([c.filepath]).catch(
+                        () => undefined
+                      );
+                    }}
+                  />
+                ))}
+              </Section>
+
+              <Section
+                id="untracked"
+                title="Untracked"
+                count={untracked.length}
+                collapsedMap={collapsedMap}
+                onToggle={toggleSection}
+                actions={
+                  untracked.length > 0 ? (
+                    <button
+                      type="button"
+                      title="Stage all untracked"
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                      onClick={() =>
+                        void stage(untracked.map((c) => c.filepath))
+                      }
+                    >
+                      Stage All
+                    </button>
+                  ) : null
+                }
+              >
+                {untracked.map((c) => (
+                  <ChangeRow
+                    key={`t-${c.filepath}`}
+                    change={c}
+                    actionLabel="Stage"
+                    onAction={() => void stage([c.filepath])}
+                    onOpenDiff={() => void openWorkingDiff(c.filepath)}
+                    onOpenFile={() => void openFile(c.workspacePath)}
+                    onDiscard={() => {
+                      if (
+                        !window.confirm(
+                          `Delete untracked file "${c.filepath}"? This cannot be undone.`
+                        )
+                      ) {
+                        return;
+                      }
+                      void discardChanges([c.filepath], {
+                        untracked: true,
+                      }).catch(() => undefined);
+                    }}
+                    onIgnore={() =>
+                      void addToGitignore(c.filepath).catch(() => undefined)
+                    }
+                  />
+                ))}
+              </Section>
+
+              {staged.length === 0 &&
+                unstaged.length === 0 &&
+                untracked.length === 0 &&
+                conflicts.length === 0 &&
+                !merging && (
+                  <p className="px-1 text-xs text-muted-foreground">
+                    No changes detected.
+                  </p>
+                )}
+
+              <Section
+                id="stash"
+                title="Stash"
+                count={stashes.length}
+                hideWhenEmpty={false}
+                collapsedMap={collapsedMap}
+                onToggle={toggleSection}
+              >
+                <div className="space-y-1">
+                  <div className="flex gap-1">
+                    <input
+                      className="h-6 min-w-0 flex-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] outline-none focus-visible:border-[var(--ide-accent)]"
+                      placeholder="Stash message (optional)"
+                      value={stashMessage}
+                      onChange={(e) => setStashMessage(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1">
                     <Button
                       type="button"
                       size="sm"
-                      className="h-7 w-full gap-1.5 text-xs"
+                      variant="outline"
+                      className="h-6 px-1.5 text-[10px]"
                       disabled={busy}
                       onClick={() =>
-                        void initRepo("main").catch(() => undefined)
+                        void stashPush({
+                          message: stashMessage || undefined,
+                        })
+                          .then(() => setStashMessage(""))
+                          .catch(() => undefined)
                       }
                     >
-                      <FolderGit2 className="size-3.5" />
-                      Initialize Repository
+                      Stash
                     </Button>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {error ||
-                      "Open a local folder with File System Access to use Source Control."}
-                  </p>
-                )}
-                <div className="space-y-1.5 border-t border-border pt-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Clone Repository
-                  </p>
-                  {showClone ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-1.5 text-[10px]"
+                      disabled={busy}
+                      onClick={() =>
+                        void stashPush({
+                          message: stashMessage || undefined,
+                          includeUntracked: true,
+                        })
+                          .then(() => setStashMessage(""))
+                          .catch(() => undefined)
+                      }
+                    >
+                      Stash -u
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-1.5 text-[10px]"
+                      disabled={busy || stashes.length === 0}
+                      onClick={() =>
+                        void stashPop(0).catch(() => undefined)
+                      }
+                    >
+                      Pop
+                    </Button>
+                  </div>
+                  {stashes.map((s) => (
+                    <div
+                      key={`stash-${s.index}`}
+                      className="group flex items-center gap-0.5 rounded-sm px-1 py-0.5 text-[11px] hover:bg-accent/60"
+                    >
+                      <span className="min-w-0 flex-1 truncate font-mono">
+                        stash@{"{" + s.index + "}"}: {s.message}
+                      </span>
+                      <button
+                        type="button"
+                        title="Apply"
+                        className="text-[10px] text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
+                        onClick={() =>
+                          void stashApply(s.index).catch(() => undefined)
+                        }
+                      >
+                        Apply
+                      </button>
+                      <button
+                        type="button"
+                        title="Pop"
+                        className="text-[10px] text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
+                        onClick={() =>
+                          void stashPop(s.index).catch(() => undefined)
+                        }
+                      >
+                        Pop
+                      </button>
+                      <button
+                        type="button"
+                        title="Drop"
+                        className="text-[10px] text-destructive opacity-0 group-hover:opacity-100"
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Drop stash@{${s.index}}? This cannot be undone.`
+                            )
+                          ) {
+                            return;
+                          }
+                          void stashDrop(s.index).catch(() => undefined);
+                        }}
+                      >
+                        Drop
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              {(compareBaseOid || compareResult) && (
+                <Section
+                  id="compare"
+                  title="Compare"
+                  count={compareResult?.files.length}
+                  hideWhenEmpty={false}
+                  collapsedMap={collapsedMap}
+                  onToggle={toggleSection}
+                  titleExtra={
+                    compareResult ? (
+                      <span className="ml-1 font-mono normal-case opacity-70">
+                        {compareResult.baseOid.slice(0, 7)} →{" "}
+                        {compareResult.headOid.slice(0, 7)}
+                      </span>
+                    ) : (
+                      <span className="ml-1 font-mono normal-case opacity-70">
+                        {compareBaseOid!.slice(0, 7)} selected
+                      </span>
+                    )
+                  }
+                  actions={
+                    <button
+                      type="button"
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                      onClick={() => clearCompare()}
+                    >
+                      Clear
+                    </button>
+                  }
+                >
+                  {!compareResult ? (
+                    <p className="px-1 text-xs text-muted-foreground">
+                      Choose another commit → Compare with Selected
+                    </p>
+                  ) : compareResult.files.length === 0 ? (
+                    <p className="px-1 text-xs text-muted-foreground">
+                      No file differences between these commits.
+                    </p>
+                  ) : (
+                    compareResult.files.map((change) => (
+                      <CommitFileRow
+                        key={change.filepath}
+                        change={change}
+                        title={`${change.status} · ${compareResult.baseOid.slice(0, 7)} → ${compareResult.headOid.slice(0, 7)} · ${change.filepath}`}
+                        onOpen={() =>
+                          void openCompareDiff(
+                            change.filepath,
+                            compareResult.baseOid,
+                            compareResult.headOid
+                          )
+                        }
+                      />
+                    ))
+                  )}
+                </Section>
+              )}
+
+              <Section
+                id="remotes"
+                title="Remotes"
+                count={remotes.length}
+                hideWhenEmpty={false}
+                collapsedMap={collapsedMap}
+                onToggle={toggleSection}
+                actions={
+                  <button
+                    type="button"
+                    className="text-[10px] text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setAddingRemote((v) => !v);
+                      setNewRemoteName(remotes.length ? "" : "origin");
+                      setNewRemoteUrl("");
+                    }}
+                  >
+                    {addingRemote ? "Cancel" : "Add"}
+                  </button>
+                }
+              >
+                <div className="space-y-1">
+                  {remotes.length === 0 && !addingRemote ? (
+                    <p className="px-1 text-xs text-muted-foreground">
+                      No remotes. Add an HTTPS origin to fetch/push.
+                    </p>
+                  ) : (
+                    remotes.map((r) => (
+                      <div
+                        key={r.remote}
+                        className="group flex items-start gap-1 rounded-sm px-1 py-0.5 hover:bg-accent/40"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-mono text-[11px] font-medium">
+                            {r.remote}
+                          </p>
+                          <p className="truncate font-mono text-[10px] text-muted-foreground">
+                            {r.url}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          title={`Remove ${r.remote}`}
+                          className="mt-0.5 text-destructive opacity-0 group-hover:opacity-100"
+                          onClick={() => {
+                            if (
+                              !window.confirm(`Remove remote "${r.remote}"?`)
+                            ) {
+                              return;
+                            }
+                            void removeRemote(r.remote).catch(
+                              () => undefined
+                            );
+                          }}
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                  {addingRemote && (
+                    <div className="space-y-1 rounded border border-border p-1.5">
+                      <input
+                        className="h-6 w-full rounded border border-border bg-background px-1.5 font-mono text-[11px] outline-none"
+                        placeholder="name (origin)"
+                        value={newRemoteName}
+                        onChange={(e) => setNewRemoteName(e.target.value)}
+                      />
+                      <input
+                        className="h-6 w-full rounded border border-border bg-background px-1.5 font-mono text-[11px] outline-none"
+                        placeholder="https://…"
+                        value={newRemoteUrl}
+                        onChange={(e) => setNewRemoteUrl(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-6 w-full text-[10px]"
+                        disabled={
+                          busy ||
+                          !newRemoteName.trim() ||
+                          !newRemoteUrl.trim()
+                        }
+                        onClick={() => {
+                          void addRemote(newRemoteName, newRemoteUrl)
+                            .then(() => {
+                              setAddingRemote(false);
+                              setNewRemoteUrl("");
+                            })
+                            .catch(() => undefined);
+                        }}
+                      >
+                        Add remote
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                    <button
+                      type="button"
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setCorsDraft(corsProxy || DEFAULT_CORS_PROXY);
+                        setEditingCors((v) => !v);
+                      }}
+                    >
+                      CORS proxy
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                      onClick={() => clearSavedCredentials()}
+                    >
+                      Clear credentials
+                    </button>
+                  </div>
+                  {editingCors && (
                     <div className="space-y-1">
                       <input
-                        autoFocus
-                        className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
-                        placeholder="https://github.com/org/repo.git"
-                        value={cloneUrl}
-                        onChange={(e) => setCloneUrl(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            const url = cloneUrl.trim();
-                            if (!url) return;
-                            void cloneRepository(url)
-                              .then(() => {
-                                setCloneUrl("");
-                                setShowClone(false);
-                              })
-                              .catch(() => undefined);
-                          }
-                          if (e.key === "Escape") {
-                            setShowClone(false);
-                            setCloneUrl("");
-                          }
-                        }}
+                        className="h-6 w-full rounded border border-border bg-background px-1.5 font-mono text-[10px] outline-none"
+                        value={corsDraft}
+                        onChange={(e) => setCorsDraft(e.target.value)}
+                        placeholder={DEFAULT_CORS_PROXY}
                       />
-                      <p className="text-[10px] text-muted-foreground">
-                        HTTPS only. You will pick an empty folder. CORS proxy:{" "}
-                        {corsProxy || DEFAULT_CORS_PROXY}
-                      </p>
                       <div className="flex gap-1">
                         <Button
                           type="button"
                           size="sm"
                           className="h-6 flex-1 text-[10px]"
-                          disabled={busy || !cloneUrl.trim()}
+                          disabled={busy}
                           onClick={() => {
-                            const url = cloneUrl.trim();
-                            if (!url) return;
-                            void cloneRepository(url)
-                              .then(() => {
-                                setCloneUrl("");
-                                setShowClone(false);
-                              })
+                            void setCorsProxy(corsDraft)
+                              .then(() => setEditingCors(false))
                               .catch(() => undefined);
                           }}
                         >
-                          Clone…
+                          Save
                         </Button>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           className="h-6 px-2 text-[10px]"
-                          onClick={() => {
-                            setShowClone(false);
-                            setCloneUrl("");
-                          }}
+                          onClick={() => setEditingCors(false)}
                         >
                           Cancel
                         </Button>
                       </div>
                     </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 w-full text-xs"
-                      disabled={busy}
-                      onClick={() => setShowClone(true)}
-                    >
-                      Clone Repository…
-                    </Button>
                   )}
                 </div>
-              </div>
-            )}
+              </Section>
 
-            {available && (
-              <>
-                {merging && (
-                  <div className="space-y-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5">
-                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                      Merge in progress
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Resolve conflicts, then Commit (or Abort Merge).
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-6 w-full text-[10px]"
-                      disabled={busy}
-                      onClick={() => {
-                        if (!window.confirm("Abort the current merge?")) return;
-                        void abortMerge().catch(() => undefined);
-                      }}
-                    >
-                      Abort Merge
-                    </Button>
-                  </div>
-                )}
-
-                <div className="space-y-1.5 px-1">
-                  <textarea
-                    className="min-h-[64px] w-full resize-y rounded border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
-                    placeholder={
-                      merging ? "Merge commit message (optional)" : "Commit message"
-                    }
-                    value={commitMessage}
-                    onChange={(e) => setCommitMessage(e.target.value)}
-                  />
-                  {(!authorName.trim() || !authorEmail.trim()) && (
-                    <div className="grid gap-1">
-                      <input
-                        className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
-                        placeholder="Author name"
-                        value={authorName}
-                        onChange={(e) => setAuthorName(e.target.value)}
-                      />
-                      <input
-                        className="h-7 w-full rounded border border-border bg-background px-2 font-mono text-xs outline-none focus-visible:border-[var(--ide-accent)]"
-                        placeholder="Author email"
-                        value={authorEmail}
-                        onChange={(e) => setAuthorEmail(e.target.value)}
-                      />
-                    </div>
-                  )}
-                  {!merging && (
-                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                      <label className="inline-flex items-center gap-1">
-                        <input
-                          type="checkbox"
-                          checked={amend}
-                          onChange={(e) => setAmend(e.target.checked)}
-                        />
-                        Amend
-                      </label>
-                      <button
-                        type="button"
-                        className="hover:text-foreground"
-                        disabled={busy || commits.length === 0}
-                        onClick={() => {
-                          if (
-                            !window.confirm(
-                              "Undo last commit (soft reset)? Changes stay staged."
-                            )
-                          ) {
-                            return;
-                          }
-                          void undoLastCommit().catch(() => undefined);
-                        }}
-                      >
-                        Undo Last Commit
-                      </button>
-                    </div>
-                  )}
-                  <Button
+              <Section
+                id="commits"
+                title="Commits"
+                count={commits.length}
+                hideWhenEmpty={false}
+                collapsedMap={collapsedMap}
+                onToggle={toggleSection}
+                actions={
+                  <button
                     type="button"
-                    size="sm"
-                    className="h-7 w-full gap-1 text-xs"
-                    disabled={!canCommit}
-                    onClick={() =>
-                      void commit(undefined, { amend })
-                        .then(() => setAmend(false))
-                        .catch(() => undefined)
-                    }
+                    className="text-[10px] text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowGraph((v) => !v)}
                   >
-                    <Check className="size-3.5" />
-                    {merging
-                      ? "Commit Merge"
-                      : amend
-                        ? "Amend Commit"
-                        : staged.length === 0 && hasSomethingToCommit
-                          ? "Commit All"
-                          : "Commit"}
-                  </Button>
-                </div>
-
-                <Section
-                  id="conflicts"
-                  title="Merge Conflicts"
-                  count={conflicts.length}
-                  collapsedMap={collapsedMap}
-                  onToggle={toggleSection}
-                >
-                  {conflicts.map((c) => (
-                    <ConflictRow
-                      key={`c-${c.filepath}`}
-                      change={c}
-                      onOpenFile={() => void openFile(c.workspacePath)}
-                      onAccept={(mode) =>
-                        void resolveConflict(c.filepath, mode).catch(
-                          () => undefined
-                        )
-                      }
-                    />
-                  ))}
-                </Section>
-
-                <Section
-                  id="staged"
-                  title="Staged"
-                  count={staged.length}
-                  collapsedMap={collapsedMap}
-                  onToggle={toggleSection}
-                  actions={
-                    <button
-                      type="button"
-                      title="Unstage all"
-                      className="text-[10px] text-muted-foreground hover:text-foreground"
-                      onClick={() => void unstageAllChanges()}
-                    >
-                      Unstage All
-                    </button>
-                  }
-                >
-                  {staged.map((c) => (
-                    <ChangeRow
-                      key={`s-${c.filepath}`}
-                      change={c}
-                      actionLabel="Unstage"
-                      onAction={() => void unstage([c.filepath])}
-                      onOpenDiff={() => void openStagedDiff(c.filepath)}
-                      onOpenFile={() => void openFile(c.workspacePath)}
-                    />
-                  ))}
-                </Section>
-
-                <Section
-                  id="changes"
-                  title="Changes"
-                  count={unstaged.length}
-                  collapsedMap={collapsedMap}
-                  onToggle={toggleSection}
-                  actions={
-                    <button
-                      type="button"
-                      title="Stage all changes"
-                      className="text-[10px] text-muted-foreground hover:text-foreground"
-                      onClick={() => void stageAllChanges()}
-                    >
-                      Stage All
-                    </button>
-                  }
-                >
-                  {unstaged.map((c) => (
-                    <ChangeRow
-                      key={`u-${c.filepath}`}
-                      change={c}
-                      actionLabel="Stage"
-                      onAction={() => void stage([c.filepath])}
-                      onOpenDiff={() => void openWorkingDiff(c.filepath)}
-                      onOpenFile={() => void openFile(c.workspacePath)}
-                      onDiscard={() => {
-                        if (
-                          !window.confirm(
-                            `Discard changes to "${c.filepath}"? This cannot be undone.`
-                          )
-                        ) {
-                          return;
-                        }
-                        void discardChanges([c.filepath]).catch(
-                          () => undefined
-                        );
-                      }}
-                    />
-                  ))}
-                </Section>
-
-                <Section
-                  id="untracked"
-                  title="Untracked"
-                  count={untracked.length}
-                  collapsedMap={collapsedMap}
-                  onToggle={toggleSection}
-                  actions={
-                    untracked.length > 0 ? (
-                      <button
-                        type="button"
-                        title="Stage all untracked"
-                        className="text-[10px] text-muted-foreground hover:text-foreground"
-                        onClick={() =>
-                          void stage(untracked.map((c) => c.filepath))
-                        }
-                      >
-                        Stage All
-                      </button>
-                    ) : null
-                  }
-                >
-                  {untracked.map((c) => (
-                    <ChangeRow
-                      key={`t-${c.filepath}`}
-                      change={c}
-                      actionLabel="Stage"
-                      onAction={() => void stage([c.filepath])}
-                      onOpenDiff={() => void openWorkingDiff(c.filepath)}
-                      onOpenFile={() => void openFile(c.workspacePath)}
-                      onDiscard={() => {
-                        if (
-                          !window.confirm(
-                            `Delete untracked file "${c.filepath}"? This cannot be undone.`
-                          )
-                        ) {
-                          return;
-                        }
-                        void discardChanges([c.filepath], {
-                          untracked: true,
-                        }).catch(() => undefined);
-                      }}
-                      onIgnore={() =>
-                        void addToGitignore(c.filepath).catch(() => undefined)
-                      }
-                    />
-                  ))}
-                </Section>
-
-                {staged.length === 0 &&
-                  unstaged.length === 0 &&
-                  untracked.length === 0 &&
-                  conflicts.length === 0 &&
-                  !merging && (
-                    <p className="px-1 text-xs text-muted-foreground">
-                      No changes detected.
-                    </p>
-                  )}
-
-                <Section
-                  id="stash"
-                  title="Stash"
-                  count={stashes.length}
-                  hideWhenEmpty={false}
-                  collapsedMap={collapsedMap}
-                  onToggle={toggleSection}
-                >
-                  <div className="space-y-1">
-                    <div className="flex gap-1">
-                      <input
-                        className="h-6 min-w-0 flex-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] outline-none focus-visible:border-[var(--ide-accent)]"
-                        placeholder="Stash message (optional)"
-                        value={stashMessage}
-                        onChange={(e) => setStashMessage(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-1.5 text-[10px]"
-                        disabled={busy}
-                        onClick={() =>
-                          void stashPush({
-                            message: stashMessage || undefined,
-                          })
-                            .then(() => setStashMessage(""))
-                            .catch(() => undefined)
-                        }
-                      >
-                        Stash
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-1.5 text-[10px]"
-                        disabled={busy}
-                        onClick={() =>
-                          void stashPush({
-                            message: stashMessage || undefined,
-                            includeUntracked: true,
-                          })
-                            .then(() => setStashMessage(""))
-                            .catch(() => undefined)
-                        }
-                      >
-                        Stash -u
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-1.5 text-[10px]"
-                        disabled={busy || stashes.length === 0}
-                        onClick={() =>
-                          void stashPop(0).catch(() => undefined)
-                        }
-                      >
-                        Pop
-                      </Button>
-                    </div>
-                    {stashes.map((s) => (
-                      <div
-                        key={`stash-${s.index}`}
-                        className="group flex items-center gap-0.5 rounded-sm px-1 py-0.5 text-[11px] hover:bg-accent/60"
-                      >
-                        <span className="min-w-0 flex-1 truncate font-mono">
-                          stash@{"{" + s.index + "}"}: {s.message}
-                        </span>
-                        <button
-                          type="button"
-                          title="Apply"
-                          className="text-[10px] text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
-                          onClick={() =>
-                            void stashApply(s.index).catch(() => undefined)
-                          }
-                        >
-                          Apply
-                        </button>
-                        <button
-                          type="button"
-                          title="Pop"
-                          className="text-[10px] text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
-                          onClick={() =>
-                            void stashPop(s.index).catch(() => undefined)
-                          }
-                        >
-                          Pop
-                        </button>
-                        <button
-                          type="button"
-                          title="Drop"
-                          className="text-[10px] text-destructive opacity-0 group-hover:opacity-100"
-                          onClick={() => {
-                            if (
-                              !window.confirm(
-                                `Drop stash@{${s.index}}? This cannot be undone.`
-                              )
-                            ) {
-                              return;
-                            }
-                            void stashDrop(s.index).catch(() => undefined);
-                          }}
-                        >
-                          Drop
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-
-                {(compareBaseOid || compareResult) && (
-                  <Section
-                    id="compare"
-                    title="Compare"
-                    count={compareResult?.files.length}
-                    hideWhenEmpty={false}
-                    collapsedMap={collapsedMap}
-                    onToggle={toggleSection}
-                    titleExtra={
-                      compareResult ? (
-                        <span className="ml-1 font-mono normal-case opacity-70">
-                          {compareResult.baseOid.slice(0, 7)} →{" "}
-                          {compareResult.headOid.slice(0, 7)}
-                        </span>
-                      ) : (
-                        <span className="ml-1 font-mono normal-case opacity-70">
-                          {compareBaseOid!.slice(0, 7)} selected
-                        </span>
-                      )
-                    }
-                    actions={
-                      <button
-                        type="button"
-                        className="text-[10px] text-muted-foreground hover:text-foreground"
-                        onClick={() => clearCompare()}
-                      >
-                        Clear
-                      </button>
-                    }
-                  >
-                    {!compareResult ? (
-                      <p className="px-1 text-xs text-muted-foreground">
-                        Choose another commit → Compare with Selected
-                      </p>
-                    ) : compareResult.files.length === 0 ? (
-                      <p className="px-1 text-xs text-muted-foreground">
-                        No file differences between these commits.
-                      </p>
-                    ) : (
-                      compareResult.files.map((change) => (
-                        <CommitFileRow
-                          key={change.filepath}
-                          change={change}
-                          title={`${change.status} · ${compareResult.baseOid.slice(0, 7)} → ${compareResult.headOid.slice(0, 7)} · ${change.filepath}`}
-                          onOpen={() =>
-                            void openCompareDiff(
-                              change.filepath,
-                              compareResult.baseOid,
-                              compareResult.headOid
-                            )
-                          }
-                        />
-                      ))
-                    )}
-                  </Section>
-                )}
-
-                <Section
-                  id="remotes"
-                  title="Remotes"
-                  count={remotes.length}
-                  hideWhenEmpty={false}
-                  collapsedMap={collapsedMap}
-                  onToggle={toggleSection}
-                  actions={
-                    <button
-                      type="button"
-                      className="text-[10px] text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        setAddingRemote((v) => !v);
-                        setNewRemoteName(remotes.length ? "" : "origin");
-                        setNewRemoteUrl("");
-                      }}
-                    >
-                      {addingRemote ? "Cancel" : "Add"}
-                    </button>
-                  }
-                >
-                  <div className="space-y-1">
-                    {remotes.length === 0 && !addingRemote ? (
-                      <p className="px-1 text-xs text-muted-foreground">
-                        No remotes. Add an HTTPS origin to fetch/push.
-                      </p>
-                    ) : (
-                      remotes.map((r) => (
-                        <div
-                          key={r.remote}
-                          className="group flex items-start gap-1 rounded-sm px-1 py-0.5 hover:bg-accent/40"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-mono text-[11px] font-medium">
-                              {r.remote}
-                            </p>
-                            <p className="truncate font-mono text-[10px] text-muted-foreground">
-                              {r.url}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            title={`Remove ${r.remote}`}
-                            className="mt-0.5 text-destructive opacity-0 group-hover:opacity-100"
-                            onClick={() => {
-                              if (
-                                !window.confirm(`Remove remote "${r.remote}"?`)
-                              ) {
-                                return;
-                              }
-                              void removeRemote(r.remote).catch(
-                                () => undefined
-                              );
-                            }}
-                          >
-                            <Trash2 className="size-3" />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                    {addingRemote && (
-                      <div className="space-y-1 rounded border border-border p-1.5">
-                        <input
-                          className="h-6 w-full rounded border border-border bg-background px-1.5 font-mono text-[11px] outline-none"
-                          placeholder="name (origin)"
-                          value={newRemoteName}
-                          onChange={(e) => setNewRemoteName(e.target.value)}
-                        />
-                        <input
-                          className="h-6 w-full rounded border border-border bg-background px-1.5 font-mono text-[11px] outline-none"
-                          placeholder="https://…"
-                          value={newRemoteUrl}
-                          onChange={(e) => setNewRemoteUrl(e.target.value)}
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-6 w-full text-[10px]"
-                          disabled={
-                            busy ||
-                            !newRemoteName.trim() ||
-                            !newRemoteUrl.trim()
-                          }
-                          onClick={() => {
-                            void addRemote(newRemoteName, newRemoteUrl)
-                              .then(() => {
-                                setAddingRemote(false);
-                                setNewRemoteUrl("");
-                              })
-                              .catch(() => undefined);
-                          }}
-                        >
-                          Add remote
-                        </Button>
-                      </div>
-                    )}
-                    <div className="flex flex-wrap items-center gap-1 pt-0.5">
-                      <button
-                        type="button"
-                        className="text-[10px] text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          setCorsDraft(corsProxy || DEFAULT_CORS_PROXY);
-                          setEditingCors((v) => !v);
-                        }}
-                      >
-                        CORS proxy
-                      </button>
-                      <button
-                        type="button"
-                        className="text-[10px] text-muted-foreground hover:text-foreground"
-                        onClick={() => clearSavedCredentials()}
-                      >
-                        Clear credentials
-                      </button>
-                    </div>
-                    {editingCors && (
-                      <div className="space-y-1">
-                        <input
-                          className="h-6 w-full rounded border border-border bg-background px-1.5 font-mono text-[10px] outline-none"
-                          value={corsDraft}
-                          onChange={(e) => setCorsDraft(e.target.value)}
-                          placeholder={DEFAULT_CORS_PROXY}
-                        />
-                        <div className="flex gap-1">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-6 flex-1 text-[10px]"
-                            disabled={busy}
-                            onClick={() => {
-                              void setCorsProxy(corsDraft)
-                                .then(() => setEditingCors(false))
-                                .catch(() => undefined);
-                            }}
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-[10px]"
-                            onClick={() => setEditingCors(false)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </Section>
-
-                <Section
-                  id="commits"
-                  title="Commits"
-                  count={commits.length}
-                  hideWhenEmpty={false}
-                  collapsedMap={collapsedMap}
-                  onToggle={toggleSection}
-                  actions={
-                    <button
-                      type="button"
-                      className="text-[10px] text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowGraph((v) => !v)}
-                    >
-                      {showGraph ? "List" : "Graph"}
-                    </button>
-                  }
-                >
-                  {showGraph && commitGraph.commits.length > 0 && (
-                    <div className="mb-1 max-h-40 overflow-auto">
+                    {showGraph ? "List" : "Graph"}
+                  </button>
+                }
+              >
+                {commits.length === 0 ? (
+                  <p className="px-1 text-xs text-muted-foreground">
+                    No commits yet.
+                  </p>
+                ) : showGraph ? (
+                  commitGraph.commits.length > 0 ? (
+                    <div className="mb-1 max-h-48 overflow-auto">
                       <svg
                         width="100%"
                         height={commitGraph.commits.length * 18}
@@ -1838,65 +1679,30 @@ export function SourceControlPane() {
                         })}
                       </svg>
                     </div>
-                  )}
-                  {commits.length === 0 ? (
-                    <p className="px-1 text-xs text-muted-foreground">
-                      No commits yet.
-                    </p>
                   ) : (
-                    commits.map((c) => (
-                      <CommitRow
+                    <p className="px-1 text-xs text-muted-foreground">
+                      Graph unavailable.
+                    </p>
+                  )
+                ) : (
+                  <div className="max-h-48 space-y-0.5 overflow-auto">
+                    {commits.map((c) => (
+                      <div
                         key={c.oid}
-                        commit={c}
-                        expanded={expandedCommitOid === c.oid}
-                        files={commitFiles[c.oid] ?? []}
-                        selectedForCompare={compareBaseOid === c.oid}
-                        canCompareWithSelected={
-                          !!compareBaseOid && compareBaseOid !== c.oid
-                        }
-                        onToggle={() => void expandCommit(c.oid)}
-                        onOpenFile={(fp) =>
-                          void openCommitDiff(fp, c.oid, c.parentOid)
-                        }
-                        onRevert={() => {
-                          if (
-                            !window.confirm(
-                              `Revert commit ${c.shortOid}?\n\n${c.subject}`
-                            )
-                          ) {
-                            return;
-                          }
-                          void revertCommit(c.oid).catch(() => undefined);
-                        }}
-                        onCherryPick={() => {
-                          if (
-                            !window.confirm(
-                              `Cherry-pick ${c.shortOid} onto ${branch}?`
-                            )
-                          ) {
-                            return;
-                          }
-                          void cherryPick(c.oid).catch(() => undefined);
-                        }}
-                        onReset={(mode) => confirmReset(c.oid, mode)}
-                        onCreateTag={() => {
-                          setTagObject(c.oid);
-                          setNewTagName("");
-                          setCreatingTag(true);
-                        }}
-                        onSelectForCompare={() => selectForCompare(c.oid)}
-                        onCompareWithSelected={() =>
-                          void compareWithSelected(c.oid)
-                        }
-                      />
-                    ))
-                  )}
-                </Section>
-              </>
-            )}
-          </div>
-        </ScrollArea>
-      )}
+                        className="truncate px-1 py-0.5 font-mono text-[10px] text-muted-foreground"
+                        title={c.message}
+                      >
+                        <span className="text-foreground">{c.shortOid}</span>{" "}
+                        {c.subject}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+            </>
+          )}
+        </div>
+      </ScrollArea>
 
       <Dialog
         open={!!authPrompt}

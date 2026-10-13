@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { useLayoutStore } from "@/lib/workspace/layout-store";
 import {
   resolveDocEntry,
   resolveDocExternalUrl,
@@ -28,7 +27,6 @@ import {
 } from "@/lib/abl/reference";
 
 export function DocumentationPane() {
-  const minimized = useLayoutStore((s) => s.minimized.documentation);
   const topic = useDocumentationStore((s) => s.topic);
   const filter = useDocumentationStore((s) => s.filter);
   const setFilter = useDocumentationStore((s) => s.setFilter);
@@ -75,12 +73,7 @@ export function DocumentationPane() {
         }
       />
 
-      {minimized ? (
-        <div className="flex flex-1 items-center px-3 text-xs text-muted-foreground">
-          Documentation (minimized)
-        </div>
-      ) : (
-        <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1">
           <div className="flex w-[42%] min-w-[140px] max-w-[280px] flex-col border-r border-border">
             <div className="border-b border-border p-2">
               <Input
@@ -173,7 +166,6 @@ export function DocumentationPane() {
             )}
           </div>
         </div>
-      )}
     </div>
   );
 }

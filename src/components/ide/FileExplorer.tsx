@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Group,
-  Panel,
-  Separator as ResizeSeparator,
-} from "react-resizable-panels";
+import { Panel } from "react-resizable-panels";
 import {
   ChevronDown,
   ChevronRight,
@@ -25,6 +21,7 @@ import { useWorkspaceStore } from "@/lib/workspace/store";
 import { useLayoutStore } from "@/lib/workspace/layout-store";
 import { useGitStore } from "@/lib/git/store";
 import type { FileNode, OpenTab } from "@/lib/workspace/types";
+import { LayoutGroup, LayoutSeparator } from "./layout-panels";
 import { PaneChrome } from "./PaneChrome";
 
 function relativeTime(ts: number): string {
@@ -437,7 +434,6 @@ export function FileExplorer() {
   const openTabs = useWorkspaceStore((s) => s.openTabs);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
   const openNewFolderDialog = useWorkspaceStore((s) => s.openNewFolderDialog);
-  const explorerMinimized = useLayoutStore((s) => s.minimized.explorer);
   const setSidebarView = useLayoutStore((s) => s.setSidebarView);
 
   const openFileTabs = openTabs.filter(
@@ -487,63 +483,61 @@ export function FileExplorer() {
           </>
         }
       />
-      {!explorerMinimized && (
-        <Group orientation="vertical" className="min-h-0 flex-1">
-          <Panel
-            id="explorer-workspace"
-            defaultSize="65%"
-            minSize="20%"
-            className="min-h-0 overflow-hidden"
-          >
-            <div className="h-full min-h-0 overflow-y-auto p-1 pb-2">
-              {loading && (
-                <p className="px-2 py-3 text-xs text-muted-foreground">
-                  Loading…
+      <LayoutGroup orientation="vertical" className="min-h-0 flex-1">
+        <Panel
+          id="explorer-workspace"
+          defaultSize="65%"
+          minSize="20%"
+          className="min-h-0 overflow-hidden"
+        >
+          <div className="h-full min-h-0 overflow-y-auto p-1 pb-2">
+            {loading && (
+              <p className="px-2 py-3 text-xs text-muted-foreground">
+                Loading…
+              </p>
+            )}
+            {!loading && !root && (
+              <div className="space-y-2 px-2 py-3 text-xs text-muted-foreground">
+                <p>No folder open.</p>
+                <p>
+                  Use <span className="text-foreground">New File</span>,{" "}
+                  <span className="text-foreground">Open Folder</span>, or{" "}
+                  <span className="text-foreground">Samples</span>.
                 </p>
-              )}
-              {!loading && !root && (
-                <div className="space-y-2 px-2 py-3 text-xs text-muted-foreground">
-                  <p>No folder open.</p>
-                  <p>
-                    Use <span className="text-foreground">New File</span>,{" "}
-                    <span className="text-foreground">Open Folder</span>, or{" "}
-                    <span className="text-foreground">Samples</span>.
-                  </p>
-                </div>
-              )}
-              {root && (
-                <>
-                  <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {root.name}
-                  </p>
-                  <TreeNode node={root} depth={0} isRoot />
-                </>
-              )}
-            </div>
-          </Panel>
-          <ResizeSeparator
-            className="h-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]"
-            title="Resize Explorer sections"
-          />
-          <Panel
-            id="explorer-tabs"
-            defaultSize="35%"
-            minSize="15%"
-            className="min-h-0 overflow-hidden"
-          >
-            <div className="h-full min-h-0 overflow-y-auto p-1 pb-4">
-              <TabSection title="Open files" tabs={openFileTabs} />
-              <TabSection title="Unsaved" tabs={unsavedTabs} />
-              {openFileTabs.length === 0 && unsavedTabs.length === 0 && (
-                <p className="px-2 py-2 text-[10px] text-muted-foreground">
-                  No open or unsaved files
+              </div>
+            )}
+            {root && (
+              <>
+                <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {root.name}
                 </p>
-              )}
-              <FileTimelineSection />
-            </div>
-          </Panel>
-        </Group>
-      )}
+                <TreeNode node={root} depth={0} isRoot />
+              </>
+            )}
+          </div>
+        </Panel>
+        <LayoutSeparator
+          className="h-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]"
+          title="Resize Explorer sections"
+        />
+        <Panel
+          id="explorer-tabs"
+          defaultSize="35%"
+          minSize="15%"
+          className="min-h-0 overflow-hidden"
+        >
+          <div className="h-full min-h-0 overflow-y-auto p-1 pb-4">
+            <TabSection title="Open files" tabs={openFileTabs} />
+            <TabSection title="Unsaved" tabs={unsavedTabs} />
+            {openFileTabs.length === 0 && unsavedTabs.length === 0 && (
+              <p className="px-2 py-2 text-[10px] text-muted-foreground">
+                No open or unsaved files
+              </p>
+            )}
+            <FileTimelineSection />
+          </div>
+        </Panel>
+      </LayoutGroup>
     </div>
   );
 }

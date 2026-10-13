@@ -2,16 +2,12 @@
 
 import { Fragment } from "react";
 import type * as Monaco from "monaco-editor";
-import {
-  Group,
-  Panel,
-  Separator as ResizeSeparator,
-  type Layout,
-} from "react-resizable-panels";
+import { Panel, type Layout } from "react-resizable-panels";
 import {
   useEditorLayoutStore,
   type SplitNode,
 } from "@/lib/workspace/editor-layout-store";
+import { LayoutGroup, LayoutSeparator } from "./layout-panels";
 import { PaneChrome } from "./PaneChrome";
 import { EditorPane } from "./EditorPane";
 
@@ -28,7 +24,7 @@ export function EditorSplitTree({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--ide-editor-bg)]">
-      <PaneChrome pane="editor" title="Editor" editorMode />
+      <PaneChrome pane="editor" title="Editor" />
       <div className="min-h-0 flex-1 overflow-hidden">
         <SplitNodeView
           node={root}
@@ -82,7 +78,7 @@ function SplitNodeView({
       : "h-1 bg-border transition-colors hover:bg-[var(--ide-accent)] data-[separator=active]:bg-[var(--ide-accent)]";
 
   return (
-    <Group
+    <LayoutGroup
       orientation={node.orientation}
       className="h-full w-full"
       onLayoutChanged={(layout) => {
@@ -94,7 +90,7 @@ function SplitNodeView({
     >
       {node.children.map((child, index) => (
         <Fragment key={leafKey(child, index)}>
-          {index > 0 && <ResizeSeparator className={sepClass} />}
+          {index > 0 && <LayoutSeparator className={sepClass} />}
           <Panel
             id={`split-${path.concat(index).join("-")}`}
             defaultSize={`${node.sizes[index] ?? 100 / node.children.length}%`}
@@ -110,7 +106,7 @@ function SplitNodeView({
           </Panel>
         </Fragment>
       ))}
-    </Group>
+    </LayoutGroup>
   );
 }
 

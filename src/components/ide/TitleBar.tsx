@@ -16,6 +16,7 @@ import {
   Files,
   GitBranch,
   Hammer,
+  History,
 } from "lucide-react";
 import { languageIdForPath } from "@/lib/abl/register";
 import { Button } from "@/components/ui/button";
@@ -98,20 +99,26 @@ export function TitleBar({
   const terminalVisible = useLayoutStore((s) => s.terminalVisible);
   const documentationVisible = useLayoutStore((s) => s.documentationVisible);
   const outputVisible = useLayoutStore((s) => s.outputVisible);
+  const gitHistoryVisible = useLayoutStore((s) => s.gitHistoryVisible);
+  const editorVisible = useLayoutStore((s) => s.editorVisible);
   const sidebarSide = useLayoutStore((s) => s.sidebarSide);
   const panelPosition = useLayoutStore((s) => s.panelPosition);
   const docsPosition = useLayoutStore((s) => s.docsPosition);
   const outputPosition = useLayoutStore((s) => s.outputPosition);
+  const gitHistoryPosition = useLayoutStore((s) => s.gitHistoryPosition);
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
   const revealSourceControl = useLayoutStore((s) => s.revealSourceControl);
   const sidebarView = useLayoutStore((s) => s.sidebarView);
   const toggleTerminal = useLayoutStore((s) => s.toggleTerminal);
   const toggleDocumentation = useLayoutStore((s) => s.toggleDocumentation);
   const toggleOutput = useLayoutStore((s) => s.toggleOutput);
+  const toggleGitHistory = useLayoutStore((s) => s.toggleGitHistory);
+  const toggleEditor = useLayoutStore((s) => s.toggleEditor);
   const setSidebarSide = useLayoutStore((s) => s.setSidebarSide);
   const setPanelPosition = useLayoutStore((s) => s.setPanelPosition);
   const setDocsPosition = useLayoutStore((s) => s.setDocsPosition);
   const setOutputPosition = useLayoutStore((s) => s.setOutputPosition);
+  const setGitHistoryPosition = useLayoutStore((s) => s.setGitHistoryPosition);
   const restoreLayout = useLayoutStore((s) => s.restoreLayout);
   const maximized = useLayoutStore((s) => s.maximized);
   const splitFocused = useEditorLayoutStore((s) => s.splitFocused);
@@ -248,7 +255,10 @@ export function TitleBar({
                 <GitBranch className="size-3.5" />
                 Source Control
               </DropdownMenuItem>
-              <DropdownMenuCheckboxItem checked disabled>
+              <DropdownMenuCheckboxItem
+                checked={editorVisible}
+                onCheckedChange={() => toggleEditor()}
+              >
                 Editor
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
@@ -268,6 +278,13 @@ export function TitleBar({
                 onCheckedChange={() => toggleOutput()}
               >
                 Output
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={gitHistoryVisible}
+                onCheckedChange={() => toggleGitHistory()}
+              >
+                <History className="size-3.5" />
+                Git History
               </DropdownMenuCheckboxItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
@@ -354,6 +371,26 @@ export function TitleBar({
                 onClick={() => setOutputPosition("right")}
               >
                 Move Output Right
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={
+                  gitHistoryPosition === "bottom" && gitHistoryVisible
+                }
+                onClick={() => setGitHistoryPosition("bottom")}
+              >
+                Move Git History Bottom
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={gitHistoryPosition === "left" && gitHistoryVisible}
+                onClick={() => setGitHistoryPosition("left")}
+              >
+                Move Git History Left
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={gitHistoryPosition === "right" && gitHistoryVisible}
+                onClick={() => setGitHistoryPosition("right")}
+              >
+                Move Git History Right
               </DropdownMenuItem>
             </DropdownMenuGroup>
             {maximized && (
