@@ -56,6 +56,7 @@ export function MinimizedPaneBar() {
   const expandMinimized = useLayoutStore((s) => s.expandMinimized);
 
   const panes = PANE_ORDER.filter((pane) => minimized[pane]);
+  if (panes.length === 0) return null;
 
   return (
     <aside
