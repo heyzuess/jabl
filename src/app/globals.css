@@ -151,6 +151,74 @@
   --ide-sidebar: #1e1e1e;
 }
 
+/* Windows Chrome paints classic light scrollbars (white track, grey thumb, arrows)
+   unless the page sets a dark color scheme. */
+html {
+  color-scheme: light;
+  scrollbar-color: #c1c1c1 #f3f3f3;
+}
+
+html.dark {
+  color-scheme: dark;
+  scrollbar-color: #5a5a5a var(--ide-sidebar);
+}
+
+html.dark::-webkit-scrollbar,
+html.dark *::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+html.dark::-webkit-scrollbar-track,
+html.dark *::-webkit-scrollbar-track,
+html.dark::-webkit-scrollbar-corner,
+html.dark *::-webkit-scrollbar-corner {
+  background: var(--ide-sidebar);
+}
+
+html.dark::-webkit-scrollbar-thumb,
+html.dark *::-webkit-scrollbar-thumb {
+  background: #5a5a5a;
+  border: 3px solid var(--ide-sidebar);
+  border-radius: 8px;
+}
+
+html.dark::-webkit-scrollbar-thumb:hover,
+html.dark *::-webkit-scrollbar-thumb:hover {
+  background: #767676;
+}
+
+html.dark::-webkit-scrollbar-button,
+html.dark *::-webkit-scrollbar-button {
+  display: block;
+  height: 14px;
+  width: 14px;
+  background-color: var(--ide-chrome);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 8px 8px;
+}
+
+html.dark::-webkit-scrollbar-button:vertical:start:decrement,
+html.dark *::-webkit-scrollbar-button:vertical:start:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath fill='%23c8c8c8' d='M1 6 L4 2 L7 6 Z'/%3E%3C/svg%3E");
+}
+
+html.dark::-webkit-scrollbar-button:vertical:end:increment,
+html.dark *::-webkit-scrollbar-button:vertical:end:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath fill='%23c8c8c8' d='M1 2 L4 6 L7 2 Z'/%3E%3C/svg%3E");
+}
+
+html.dark::-webkit-scrollbar-button:horizontal:start:decrement,
+html.dark *::-webkit-scrollbar-button:horizontal:start:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath fill='%23c8c8c8' d='M6 1 L2 4 L6 7 Z'/%3E%3C/svg%3E");
+}
+
+html.dark::-webkit-scrollbar-button:horizontal:end:increment,
+html.dark *::-webkit-scrollbar-button:horizontal:end:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath fill='%23c8c8c8' d='M2 1 L6 4 L2 7 Z'/%3E%3C/svg%3E");
+}
+
 /* xterm fills its container */
 .xterm,
 .xterm-viewport {
