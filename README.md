@@ -2,6 +2,8 @@
 
 A VS Code–like browser IDE for **OpenEdge ABL** built with Next.js, Monaco, and Tailwind. Open a local folder (File System Access API), edit `.p` / `.w` / `.i` / `.cls` / `.df` / `.abl` files with syntax highlighting and autocomplete, and use a project-scoped terminal (`ls`, `cat`, `pwd`, …) over the opened tree.
 
+JABL 1.0.0 is free software under the [GNU Affero General Public License v3.0](LICENSE). Copyright (C) 2026 Jesse Iberri. You may use and modify it; if you host a modified copy, you must offer users that source under the same license. Source: [https://origin.cursor.com/jesse-iberri/jabl](https://origin.cursor.com/jesse-iberri/jabl). The hosted IDE also has a **Source** link in the title bar.
+
 ## Features
 
 - **Monaco ABL language** — Monarch tokenizer + keyword/snippet/built-in completions
@@ -42,7 +44,7 @@ export DLC=/path/to/dlc
 npm run oe-agent
 ```
 
-The agent listens on `http://127.0.0.1:43128`. The Next.js app proxies `/api/oe/run` there (`OE_AGENT_URL` overrides the default). Then use **Run → Compile** / **Run → Run**, or terminal `compile` / `run`. Output (stdout, stderr, compile messages) appears in the **Output** pane (**View → Output**).
+The agent listens on `http://127.0.0.1:43128`. `npm run dev` proxies Compile/Run through `/api/oe/run` (`OE_AGENT_URL` overrides the agent the server calls). The static site calls `http://127.0.0.1:43128` directly from the browser (`NEXT_PUBLIC_OE_AGENT_URL` overrides that). Then use **Run → Compile** / **Run → Run**, or terminal `compile` / `run`. Output (stdout, stderr, compile messages) appears in the **Output** pane (**View → Output**).
 
 Without the agent or `DLC`, the IDE still works for editing; Compile/Run show a clear error in Output.
 
@@ -54,14 +56,22 @@ Git network ops run entirely in the browser via `isomorphic-git` + HTTPS:
 - **Auth** — username + personal access token (prompted on 401; optional remember per host in `localStorage`). Clear via Remotes → Clear credentials.
 - **Limits** — HTTPS remotes only (no SSH); no force-push UI; clone needs an **empty** folder via the directory picker.
 
-Or production:
+## Hosted site
+
+Editing, samples, and git run in the browser, so the public app is a static site. GitHub Actions (`.github/workflows/pages.yml`) publishes `npm run build` to GitHub Pages from the `out/` directory. Serve that site at a domain root. A project path such as `https://<user>.github.io/jabl/` is not configured.
+
+The hosted IDE does not compile ABL in the cloud. Compile and Run still need OpenEdge and `npm run oe-agent` on the computer that is using the site. The title bar **Source** link points at the repository so users can view and modify the program.
+
+## Local server
+
+`npm start` is a local Node server, not the public deploy. It keeps the `/api/oe/run` proxy and binds to `127.0.0.1:43127`:
 
 ```bash
-npm run build
+npm run build:server
 npm start
 ```
 
-(`dev` / `start` already bind port `43127`.)
+`npm run build` is the static export used for GitHub Pages. It does not produce a server `next start` can run.
 
 ## Troubleshooting: `npm install` fails with `EEXIST` / `EACCES` in `~/.npm/_cacache`
 

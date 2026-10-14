@@ -1,4 +1,5 @@
 [done / partial]
+- Version 1.0.0 is a static site for GitHub Pages under AGPL-3.0; compile/run still uses the local OE agent
 - Open files pane groups each file under its parent folder relative to the current working directory
 - utils.i sample wraps utilities in an H_UTILS include guard
 - Editor tabs drag into a split, or onto an editor edge to create one; closing a tab closes it only in that split

@@ -1,10 +1,12 @@
 {
   "name": "jabl",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "license": "AGPL-3.0-only",
   "private": true,
   "scripts": {
     "dev": "next dev -p 43127 -H 127.0.0.1",
-    "build": "next build",
+    "build": "node scripts/static-build.mjs",
+    "build:server": "next build",
     "start": "next start -p 43127 -H 127.0.0.1",
     "lint": "eslint",
     "oe-agent": "node tools/oe-agent/server.mjs",

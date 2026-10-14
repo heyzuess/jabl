@@ -44,6 +44,7 @@ import {
 } from "@/lib/workspace/editor-layout-store";
 import { useGitStore } from "@/lib/git/store";
 import { executeAbl } from "@/lib/oe/execute";
+import { SOURCE_REPOSITORY_URL } from "@/lib/project";
 import type { ThemeMode } from "@/lib/theme/themes";
 
 type TitleBarProps = {
@@ -536,6 +537,15 @@ export function TitleBar({
             {statusMessage ? ` · ${statusMessage}` : ""}
           </span>
         )}
+        <a
+          href={SOURCE_REPOSITORY_URL}
+          target="_blank"
+          rel="noreferrer"
+          title="View and modify the source (AGPL-3.0)"
+          className="inline-flex h-8 shrink-0 items-center rounded-md px-2 text-xs text-foreground hover:bg-muted"
+        >
+          Source
+        </a>
         <button
           type="button"
           aria-label="Toggle theme"
