@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { languageIdForPath } from "@/lib/abl/register";
 import { languageForFilename } from "@/lib/abl/templates";
+import { publicPath } from "@/lib/project";
 import {
   createDirectoryInHandle,
   findNode,
@@ -364,7 +365,9 @@ async function loadSampleTree(): Promise<FileNode> {
     const dirPath = `samples/${group.folder}`;
     const files: FileNode[] = [];
     for (const name of group.files) {
-      const res = await fetch(`/samples/abl/${group.folder}/${name}`);
+      const res = await fetch(
+        publicPath(`/samples/abl/${group.folder}/${name}`)
+      );
       if (!res.ok) continue;
       const content = await res.text();
       files.push({

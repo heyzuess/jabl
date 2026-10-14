@@ -58,7 +58,7 @@ Git network ops run entirely in the browser via `isomorphic-git` + HTTPS:
 
 ## Hosted site
 
-Editing, samples, and git run in the browser, so the public app is a static site. GitHub Actions (`.github/workflows/pages.yml`) publishes `npm run build` to GitHub Pages from the `out/` directory. Serve that site at a domain root. A project path such as `https://<user>.github.io/jabl/` is not configured.
+Editing, samples, and git run in the browser, so the public app is a static site. GitHub Actions (`.github/workflows/pages.yml`) publishes `npm run build` to GitHub Pages from the `out/` directory. The project site is `https://<user>.github.io/jabl/`, and that build prefixes assets with `/jabl`. Set `PAGES_BASE_PATH` empty before `npm run build` to publish at a domain root instead.
 
 The hosted IDE does not compile ABL in the cloud. Compile and Run still need OpenEdge and `npm run oe-agent` on the computer that is using the site. The title bar **Source** link points at the repository so users can view and modify the program.
 
