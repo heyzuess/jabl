@@ -13,6 +13,8 @@ JABL 1.0.0 is free software under the [GNU Affero General Public License v3.0](L
 - **New File** — create an unsaved tab from Blank, Procedure, Class, or Include templates; Save writes locally (`showSaveFilePicker` or download)
 - **Workspace** — `showDirectoryPicker` when available; `<input webkitdirectory>` fallback (save downloads the file)
 - **Sample project** — `public/samples/abl/` loads automatically so you can try the IDE immediately
+- **REST samples** — `samples/rest/` (PASOE WEB WebHandler + DataObjectHandler + auth + classic REST mapping). **Tools → Generate REST catalog…** emits `catalog.json` / `resourceModel.xml` from `service-mapping.json`. Live HTTP needs PASOE WEB, not batch Run.
+- **WebHandler template** — **File → New File…** includes an OpenEdge.Web.WebHandler scaffold
 - **Themes** — dark default, light toggle, and a customization panel (persisted in `localStorage`)
 - **Terminal** — xterm.js over the virtual workspace only (no OS shell)
 - **Source Control** — browser git (`isomorphic-git`) for File System Access folders: initialize/clone, stage/unstage/commit (smart Commit All, amend, undo, discard, hunk staging), Monaco diffs (side/inline/WS/wrap), history + commit graph + compare/revert/cherry-pick/reset, file timeline & blame, stash, merge conflicts, `.gitignore` quick-add, local branches/tags, **HTTPS remotes** (fetch/pull/push/sync/publish, ahead/behind), Explorer decorations, and a terminal `git` subset. Author + optional PATs in `localStorage`; network ops need a **CORS proxy** (default `https://cors.isomorphic-git.org`) and HTTPS URLs (no SSH)

@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: JABL sample Customer API (WebHandler)
+  version: 1.0.0
+  description: Hand-authored OpenAPI for samples.rest.CustomersHandler (PASOE WEB).
+servers:
+  - url: /web/api
+paths:
+  /customers:
+    get:
+      summary: List / query customers
+      parameters:
+        - in: query
+          name: name
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create customer
+      responses:
+        '201': { description: Created }
+    options:
+      summary: CORS preflight
+      responses:
+        '204': { description: No Content }
+  /customers/{id}:
+    get:
+      summary: Get customer by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: OK }
+    put:
+      summary: Full update
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Partial update
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Delete customer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: No Content }

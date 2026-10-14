@@ -1,0 +1,68 @@
+{
+  "version": "1.0",
+  "lastModified": "2026-01-01T00:00:00.000Z",
+  "services": [
+    {
+      "name": "CustomerRestService",
+      "address": "/rest/CustomerRestService",
+      "useRequest": true,
+      "resources": [
+        {
+          "name": "ListCustomers",
+          "path": "/customers",
+          "operations": [
+            {
+              "type": "invoke",
+              "method": "GET",
+              "name": "ListCustomers"
+            }
+          ]
+        },
+        {
+          "name": "GetCustomer",
+          "path": "/customers/{id}",
+          "operations": [
+            {
+              "type": "invoke",
+              "method": "GET",
+              "name": "GetCustomer"
+            }
+          ]
+        },
+        {
+          "name": "CreateCustomer",
+          "path": "/customers",
+          "operations": [
+            {
+              "type": "invoke",
+              "method": "POST",
+              "name": "CreateCustomer"
+            }
+          ]
+        },
+        {
+          "name": "UpdateCustomer",
+          "path": "/customers/{id}",
+          "operations": [
+            {
+              "type": "invoke",
+              "method": "PUT",
+              "name": "UpdateCustomer"
+            }
+          ]
+        },
+        {
+          "name": "DeleteCustomer",
+          "path": "/customers/{id}",
+          "operations": [
+            {
+              "type": "invoke",
+              "method": "DELETE",
+              "name": "DeleteCustomer"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

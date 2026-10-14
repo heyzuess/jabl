@@ -1,0 +1,50 @@
+{
+  "serviceName": "CustomerRestService",
+  "basePath": "/rest/CustomerRestService",
+  "version": "1.0.0",
+  "operations": [
+    {
+      "name": "ListCustomers",
+      "method": "GET",
+      "uri": "/customers",
+      "target": "samples.rest.classic.CustomerRest",
+      "operation": "ListCustomers",
+      "params": []
+    },
+    {
+      "name": "GetCustomer",
+      "method": "GET",
+      "uri": "/customers/{id}",
+      "target": "samples.rest.classic.CustomerRest",
+      "operation": "GetCustomer",
+      "params": [{ "name": "id", "type": "integer", "in": "path" }]
+    },
+    {
+      "name": "CreateCustomer",
+      "method": "POST",
+      "uri": "/customers",
+      "target": "samples.rest.classic.CustomerRest",
+      "operation": "CreateCustomer",
+      "params": [{ "name": "body", "type": "object", "in": "body" }]
+    },
+    {
+      "name": "UpdateCustomer",
+      "method": "PUT",
+      "uri": "/customers/{id}",
+      "target": "samples.rest.classic.CustomerRest",
+      "operation": "UpdateCustomer",
+      "params": [
+        { "name": "id", "type": "integer", "in": "path" },
+        { "name": "body", "type": "object", "in": "body" }
+      ]
+    },
+    {
+      "name": "DeleteCustomer",
+      "method": "DELETE",
+      "uri": "/customers/{id}",
+      "target": "samples.rest.classic.CustomerRest",
+      "operation": "DeleteCustomer",
+      "params": [{ "name": "id", "type": "integer", "in": "path" }]
+    }
+  ]
+}

@@ -1,0 +1,192 @@
+{
+  "source": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Web.package.html",
+  "types": [
+    {
+      "name": "OpenEdge.Web.WebHandler",
+      "kind": "class",
+      "summary": "Base class for PASOE WEB transport handlers that process HTTP requests.",
+      "signature": "CLASS OpenEdge.Web.WebHandler",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Web.WebHandler.html",
+      "inherits": "Progress.Lang.Object",
+      "members": [
+        {
+          "name": "HandleRequest",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → INTEGER",
+          "signature": "METHOD PUBLIC INTEGER HandleRequest ( )",
+          "summary": "Entry point invoked by the WEB transport for an HTTP request."
+        },
+        {
+          "name": "HandleGet",
+          "kind": "method",
+          "access": "PROTECTED",
+          "detail": "Method → INTEGER",
+          "signature": "METHOD PROTECTED INTEGER HandleGet ( INPUT poRequest AS IWebRequest )",
+          "summary": "Handle HTTP GET."
+        },
+        {
+          "name": "HandlePost",
+          "kind": "method",
+          "access": "PROTECTED",
+          "detail": "Method → INTEGER",
+          "signature": "METHOD PROTECTED INTEGER HandlePost ( INPUT poRequest AS IWebRequest )",
+          "summary": "Handle HTTP POST."
+        },
+        {
+          "name": "HandlePut",
+          "kind": "method",
+          "access": "PROTECTED",
+          "detail": "Method → INTEGER",
+          "signature": "METHOD PROTECTED INTEGER HandlePut ( INPUT poRequest AS IWebRequest )",
+          "summary": "Handle HTTP PUT."
+        },
+        {
+          "name": "HandleDelete",
+          "kind": "method",
+          "access": "PROTECTED",
+          "detail": "Method → INTEGER",
+          "signature": "METHOD PROTECTED INTEGER HandleDelete ( INPUT poRequest AS IWebRequest )",
+          "summary": "Handle HTTP DELETE."
+        },
+        {
+          "name": "HandleHead",
+          "kind": "method",
+          "access": "PROTECTED",
+          "detail": "Method → INTEGER",
+          "signature": "METHOD PROTECTED INTEGER HandleHead ( INPUT poRequest AS IWebRequest )",
+          "summary": "Handle HTTP HEAD."
+        },
+        {
+          "name": "HandleOptions",
+          "kind": "method",
+          "access": "PROTECTED",
+          "detail": "Method → INTEGER",
+          "signature": "METHOD PROTECTED INTEGER HandleOptions ( INPUT poRequest AS IWebRequest )",
+          "summary": "Handle HTTP OPTIONS."
+        },
+        {
+          "name": "HandlePatch",
+          "kind": "method",
+          "access": "PROTECTED",
+          "detail": "Method → INTEGER",
+          "signature": "METHOD PROTECTED INTEGER HandlePatch ( INPUT poRequest AS IWebRequest )",
+          "summary": "Handle HTTP PATCH."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Web.DataObjectHandler",
+      "kind": "class",
+      "summary": "Built-in WebHandler that dispatches REST operations from JSON .map service definitions.",
+      "signature": "CLASS OpenEdge.Web.DataObjectHandler",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Web.DataObjectHandler.html",
+      "inherits": "OpenEdge.Web.WebHandler",
+      "members": [
+        {
+          "name": "HandleRequest",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method → INTEGER",
+          "signature": "METHOD PUBLIC INTEGER HandleRequest ( )",
+          "summary": "Dispatch using the registered Data Object service map."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Web.CatalogWebHandler",
+      "kind": "class",
+      "summary": "Serves OpenAPI descriptions for registered DataObjectHandler services.",
+      "signature": "CLASS OpenEdge.Web.CatalogWebHandler",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Web.CatalogWebHandler.html",
+      "inherits": "OpenEdge.Web.WebHandler",
+      "members": [
+        {
+          "name": "HandleGet",
+          "kind": "method",
+          "access": "PROTECTED",
+          "detail": "Method → INTEGER",
+          "signature": "METHOD PROTECTED INTEGER HandleGet ( INPUT poRequest AS IWebRequest )",
+          "summary": "Return OpenAPI 3.x document for discovered DOH services."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Web.IWebRequest",
+      "kind": "interface",
+      "summary": "Represents an inbound HTTP request on the PASOE WEB transport.",
+      "signature": "INTERFACE OpenEdge.Web.IWebRequest",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Web.IWebRequest.html",
+      "members": [
+        {
+          "name": "PathInfo",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY PathInfo AS CHARACTER",
+          "summary": "Path portion of the request URI."
+        },
+        {
+          "name": "Method",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → CHARACTER",
+          "signature": "DEFINE PUBLIC PROPERTY Method AS CHARACTER",
+          "summary": "HTTP method name."
+        },
+        {
+          "name": "GetHeader",
+          "kind": "method",
+          "access": "PUBLIC",
+          "detail": "Method",
+          "signature": "METHOD PUBLIC HttpHeader GetHeader ( INPUT pcName AS CHARACTER )",
+          "summary": "Return a request header by name."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Web.IWebResponse",
+      "kind": "interface",
+      "summary": "Represents an outbound HTTP response on the PASOE WEB transport.",
+      "signature": "INTERFACE OpenEdge.Web.IWebResponse",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Web.IWebResponse.html",
+      "members": [
+        {
+          "name": "StatusCode",
+          "kind": "property",
+          "access": "PUBLIC",
+          "detail": "Property → INTEGER",
+          "signature": "DEFINE PUBLIC PROPERTY StatusCode AS INTEGER",
+          "summary": "HTTP status code to return."
+        }
+      ]
+    },
+    {
+      "name": "OpenEdge.Web.WebRequest",
+      "kind": "class",
+      "summary": "Default IWebRequest implementation used by WebHandler.",
+      "signature": "CLASS OpenEdge.Web.WebRequest",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Web.WebRequest.html",
+      "inherits": "Progress.Lang.Object",
+      "members": []
+    },
+    {
+      "name": "OpenEdge.Web.WebResponse",
+      "kind": "class",
+      "summary": "Default IWebResponse implementation used by WebHandler.",
+      "signature": "CLASS OpenEdge.Web.WebResponse",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Web.WebResponse.html",
+      "inherits": "Progress.Lang.Object",
+      "members": []
+    },
+    {
+      "name": "OpenEdge.Web.WebResponseWriter",
+      "kind": "class",
+      "summary": "Writes WebHandler response entities to the HTTP client.",
+      "signature": "CLASS OpenEdge.Web.WebResponseWriter",
+      "docsUrl": "https://documentation.progress.com/output/oehttpclient/oe128/OpenEdge.Web.WebResponseWriter.html",
+      "inherits": "Progress.Lang.Object",
+      "members": []
+    }
+  ]
+}

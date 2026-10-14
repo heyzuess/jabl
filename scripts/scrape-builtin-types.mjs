@@ -718,6 +718,7 @@ function pickRootFile(name) {
   }
   if (name.startsWith("OpenEdge.Logging")) return "openedge-logging-types.json";
   if (name.startsWith("OpenEdge.Net")) return "openedge-net-types.json";
+  if (name.startsWith("OpenEdge.Web")) return "openedge-web-types.json";
   return "openedge-core-types.json";
 }
 
@@ -726,9 +727,12 @@ async function scrapeAllOpenedge() {
   const coreTypes = await collectOeTypes(["OpenEdge.Core"]);
   const loggingTypes = await collectOeTypes(["OpenEdge.Logging"]);
   const netTypes = await collectOeTypes(["OpenEdge.Net"]);
+  const webTypes = await collectOeTypes(["OpenEdge.Web"]);
 
   // Include Ccs packages referenced from Core package pages if discovered
-  const all = [...new Set([...coreTypes, ...loggingTypes, ...netTypes])];
+  const all = [
+    ...new Set([...coreTypes, ...loggingTypes, ...netTypes, ...webTypes]),
+  ];
   console.log(`Scraping ${all.length} OpenEdge/Ccs types…`);
 
   const buckets = {
@@ -742,6 +746,10 @@ async function scrapeAllOpenedge() {
     },
     "openedge-net-types.json": {
       source: `${OE_BASE}/OpenEdge.Net.package.html`,
+      types: [],
+    },
+    "openedge-web-types.json": {
+      source: `${OE_BASE}/OpenEdge.Web.package.html`,
       types: [],
     },
   };
@@ -772,6 +780,7 @@ async function verifyDocsUrls() {
     "openedge-core-types.json",
     "openedge-logging-types.json",
     "openedge-net-types.json",
+    "openedge-web-types.json",
   ];
   let ok = 0;
   let bad = 0;

@@ -42,7 +42,8 @@ export function PaneChrome({
     pane === "terminal" ||
     pane === "documentation" ||
     pane === "output" ||
-    pane === "gitHistory";
+    pane === "gitHistory" ||
+    pane === "preview";
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!canDock) return;

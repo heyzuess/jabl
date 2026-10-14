@@ -101,12 +101,14 @@ export function TitleBar({
   const documentationVisible = useLayoutStore((s) => s.documentationVisible);
   const outputVisible = useLayoutStore((s) => s.outputVisible);
   const gitHistoryVisible = useLayoutStore((s) => s.gitHistoryVisible);
+  const previewVisible = useLayoutStore((s) => s.previewVisible);
   const editorVisible = useLayoutStore((s) => s.editorVisible);
   const sidebarSide = useLayoutStore((s) => s.sidebarSide);
   const panelPosition = useLayoutStore((s) => s.panelPosition);
   const docsPosition = useLayoutStore((s) => s.docsPosition);
   const outputPosition = useLayoutStore((s) => s.outputPosition);
   const gitHistoryPosition = useLayoutStore((s) => s.gitHistoryPosition);
+  const previewPosition = useLayoutStore((s) => s.previewPosition);
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
   const revealSourceControl = useLayoutStore((s) => s.revealSourceControl);
   const sidebarView = useLayoutStore((s) => s.sidebarView);
@@ -114,12 +116,14 @@ export function TitleBar({
   const toggleDocumentation = useLayoutStore((s) => s.toggleDocumentation);
   const toggleOutput = useLayoutStore((s) => s.toggleOutput);
   const toggleGitHistory = useLayoutStore((s) => s.toggleGitHistory);
+  const togglePreview = useLayoutStore((s) => s.togglePreview);
   const toggleEditor = useLayoutStore((s) => s.toggleEditor);
   const setSidebarSide = useLayoutStore((s) => s.setSidebarSide);
   const setPanelPosition = useLayoutStore((s) => s.setPanelPosition);
   const setDocsPosition = useLayoutStore((s) => s.setDocsPosition);
   const setOutputPosition = useLayoutStore((s) => s.setOutputPosition);
   const setGitHistoryPosition = useLayoutStore((s) => s.setGitHistoryPosition);
+  const setPreviewPosition = useLayoutStore((s) => s.setPreviewPosition);
   const restoreLayout = useLayoutStore((s) => s.restoreLayout);
   const maximized = useLayoutStore((s) => s.maximized);
   const splitFocused = useEditorLayoutStore((s) => s.splitFocused);
@@ -287,6 +291,12 @@ export function TitleBar({
                 <History className="size-3.5" />
                 Git History
               </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={previewVisible}
+                onCheckedChange={() => togglePreview()}
+              >
+                Preview
+              </DropdownMenuCheckboxItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -392,6 +402,24 @@ export function TitleBar({
                 onClick={() => setGitHistoryPosition("right")}
               >
                 Move Git History Right
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={previewPosition === "bottom" && previewVisible}
+                onClick={() => setPreviewPosition("bottom")}
+              >
+                Move Preview Bottom
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={previewPosition === "left" && previewVisible}
+                onClick={() => setPreviewPosition("left")}
+              >
+                Move Preview Left
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={previewPosition === "right" && previewVisible}
+                onClick={() => setPreviewPosition("right")}
+              >
+                Move Preview Right
               </DropdownMenuItem>
             </DropdownMenuGroup>
             {maximized && (

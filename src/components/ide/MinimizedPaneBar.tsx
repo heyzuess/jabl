@@ -4,6 +4,7 @@ import {
   BookOpen,
   Code2,
   Files,
+  FileText,
   GitBranch,
   History,
   ScrollText,
@@ -22,6 +23,7 @@ const PANE_ORDER: PaneId[] = [
   "documentation",
   "output",
   "gitHistory",
+  "preview",
 ];
 
 function paneMeta(
@@ -43,6 +45,8 @@ function paneMeta(
       return { label: "Output", icon: ScrollText };
     case "gitHistory":
       return { label: "Git History", icon: History };
+    case "preview":
+      return { label: "Preview", icon: FileText };
   }
 }
 

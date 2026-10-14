@@ -10,6 +10,8 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  FileMinus,
+  Files,
   GitBranch,
   Pencil,
   Trash2,
@@ -456,34 +458,51 @@ function groupTabsByParent(
 
 function FileTabButton({ tab, indent }: { tab: OpenTab; indent: number }) {
   const setActivePath = useWorkspaceStore((s) => s.setActivePath);
+  const closeTab = useWorkspaceStore((s) => s.closeTab);
   const activePath = useWorkspaceStore((s) => s.activePath);
   const dirty = useWorkspaceStore((s) => s.dirty);
   const active = tab.path === activePath;
   const abl = isAblFile(tab.name);
 
   return (
-    <button
-      type="button"
+    <div
       className={cn(
-        "flex w-full items-center gap-1 rounded-sm px-1 py-0.5 text-left text-xs hover:bg-accent/60",
+        "group flex w-full items-center gap-0.5 rounded-sm pr-0.5 text-xs hover:bg-accent/60",
         active && "bg-accent text-accent-foreground",
         abl && !active && "text-[var(--ide-keyword)]"
       )}
       style={{ paddingLeft: indent }}
-      onClick={() => setActivePath(tab.path)}
-      title={tab.path}
     >
-      <FileCode2
-        className={cn(
-          "size-3.5 shrink-0",
-          abl ? "text-[var(--ide-keyword)]" : "opacity-60"
-        )}
-      />
-      <span className="truncate">
-        {tab.name}
-        {dirty[tab.path] ? " *" : ""}
-      </span>
-    </button>
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-1 py-0.5 text-left"
+        onClick={() => setActivePath(tab.path)}
+        title={tab.path}
+      >
+        <FileCode2
+          className={cn(
+            "size-3.5 shrink-0",
+            abl ? "text-[var(--ide-keyword)]" : "opacity-60"
+          )}
+        />
+        <span className="truncate">
+          {tab.name}
+          {dirty[tab.path] ? " *" : ""}
+        </span>
+      </button>
+      <button
+        type="button"
+        title={`Close ${tab.name}`}
+        aria-label={`Close ${tab.name}`}
+        className="inline-flex size-5 shrink-0 items-center justify-center rounded opacity-0 hover:bg-accent group-hover:opacity-100 focus-visible:opacity-100"
+        onClick={(e) => {
+          e.stopPropagation();
+          closeTab(tab.path);
+        }}
+      >
+        <X className="size-3" />
+      </button>
+    </div>
   );
 }
 
@@ -568,6 +587,9 @@ export function FileExplorer() {
   const explorerFolders = useWorkspaceStore((s) => s.explorerFolders);
   const loading = useWorkspaceStore((s) => s.loading);
   const openTabs = useWorkspaceStore((s) => s.openTabs);
+  const dirty = useWorkspaceStore((s) => s.dirty);
+  const closeAllTabs = useWorkspaceStore((s) => s.closeAllTabs);
+  const closeSavedTabs = useWorkspaceStore((s) => s.closeSavedTabs);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
   const openNewFolderDialog = useWorkspaceStore((s) => s.openNewFolderDialog);
   const setSidebarView = useLayoutStore((s) => s.setSidebarView);
@@ -579,6 +601,23 @@ export function FileExplorer() {
   const unsavedTabs = openTabs.filter(
     (t) => t.unsaved || isUntitledPath(t.path)
   );
+  const hasOpenTabs = openTabs.length > 0;
+  const hasUnsavedChanges = openTabs.some(
+    (t) => dirty[t.path] || t.unsaved || isUntitledPath(t.path)
+  );
+
+  const confirmCloseAll = () => {
+    if (hasUnsavedChanges) {
+      if (
+        !window.confirm(
+          "Close all files? Unsaved changes will be discarded."
+        )
+      ) {
+        return;
+      }
+    }
+    closeAllTabs();
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--ide-sidebar)]">
@@ -659,6 +698,28 @@ export function FileExplorer() {
           className="min-h-0 overflow-hidden"
         >
           <div className="h-full min-h-0 overflow-y-auto p-1 pb-4">
+            {hasOpenTabs && (
+              <div className="flex items-center justify-end gap-0.5 px-1 pb-0.5">
+                <button
+                  type="button"
+                  title="Close saved files"
+                  aria-label="Close saved files"
+                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                  onClick={() => closeSavedTabs()}
+                >
+                  <FileMinus className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Close all files"
+                  aria-label="Close all files"
+                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                  onClick={confirmCloseAll}
+                >
+                  <Files className="size-3.5" />
+                </button>
+              </div>
+            )}
             <OpenFilesSection tabs={openFileTabs} />
             <TabSection title="Unsaved" tabs={unsavedTabs} />
             {openFileTabs.length === 0 && unsavedTabs.length === 0 && (

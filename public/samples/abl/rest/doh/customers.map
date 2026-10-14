@@ -1,0 +1,48 @@
+{
+  "serviceName": "CustomerService",
+  "version": "1.0.0",
+  "operations": [
+    {
+      "name": "ListCustomers",
+      "method": "GET",
+      "path": "/customers",
+      "target": "samples.rest.doh.CustomerEntity",
+      "operation": "List"
+    },
+    {
+      "name": "GetCustomer",
+      "method": "GET",
+      "path": "/customers/{id}",
+      "target": "samples.rest.doh.CustomerEntity",
+      "operation": "Get"
+    },
+    {
+      "name": "CreateCustomer",
+      "method": "POST",
+      "path": "/customers",
+      "target": "samples.rest.doh.CustomerEntity",
+      "operation": "Create"
+    },
+    {
+      "name": "UpdateCustomer",
+      "method": "PUT",
+      "path": "/customers/{id}",
+      "target": "samples.rest.doh.CustomerEntity",
+      "operation": "Update"
+    },
+    {
+      "name": "PatchCustomer",
+      "method": "PATCH",
+      "path": "/customers/{id}",
+      "target": "samples.rest.doh.CustomerEntity",
+      "operation": "Patch"
+    },
+    {
+      "name": "DeleteCustomer",
+      "method": "DELETE",
+      "path": "/customers/{id}",
+      "target": "samples.rest.doh.CustomerEntity",
+      "operation": "Delete"
+    }
+  ]
+}

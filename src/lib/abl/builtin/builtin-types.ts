@@ -13,6 +13,7 @@ import progressCatalog from "./progress-types.json";
 import openedgeCoreCatalog from "./openedge-core-types.json";
 import openedgeLoggingCatalog from "./openedge-logging-types.json";
 import openedgeNetCatalog from "./openedge-net-types.json";
+import openedgeWebCatalog from "./openedge-web-types.json";
 
 export type { BuiltinMember, BuiltinType, BuiltinCatalogFile } from "./types";
 
@@ -91,6 +92,7 @@ const catalogs: BuiltinCatalogFile[] = [
   openedgeCoreCatalog as BuiltinCatalogFile,
   openedgeLoggingCatalog as BuiltinCatalogFile,
   openedgeNetCatalog as BuiltinCatalogFile,
+  openedgeWebCatalog as BuiltinCatalogFile,
 ];
 
 const allTypes: BuiltinType[] = catalogs.flatMap((c) => c.types ?? []);

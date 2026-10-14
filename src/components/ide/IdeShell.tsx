@@ -11,6 +11,7 @@ import { TerminalPane } from "./TerminalPane";
 import { DocumentationPane } from "./DocumentationPane";
 import { OutputPane } from "./OutputPane";
 import { GitHistoryPane } from "./GitHistoryPane";
+import { MarkdownPreviewPane } from "./MarkdownPreviewPane";
 import { MinimizedPaneBar } from "./MinimizedPaneBar";
 import { ThemeSettings } from "./ThemeSettings";
 import { NewFileDialog } from "./NewFileDialog";
@@ -65,14 +66,24 @@ function IdeShellClient() {
   const documentationVisible = useLayoutStore((s) => s.documentationVisible);
   const outputVisible = useLayoutStore((s) => s.outputVisible);
   const gitHistoryVisible = useLayoutStore((s) => s.gitHistoryVisible);
+  const previewVisible = useLayoutStore((s) => s.previewVisible);
   const editorVisible = useLayoutStore((s) => s.editorVisible);
   const sidebarSide = useLayoutStore((s) => s.sidebarSide);
   const panelPosition = useLayoutStore((s) => s.panelPosition);
   const docsPosition = useLayoutStore((s) => s.docsPosition);
   const outputPosition = useLayoutStore((s) => s.outputPosition);
   const gitHistoryPosition = useLayoutStore((s) => s.gitHistoryPosition);
+  const previewPosition = useLayoutStore((s) => s.previewPosition);
   const minimized = useLayoutStore((s) => s.minimized);
   const paneSizes = useLayoutStore((s) => s.paneSizes);
+  const revealPreview = useLayoutStore((s) => s.revealPreview);
+  const activePath = useWorkspaceStore((s) => s.activePath);
+
+  useEffect(() => {
+    if (activePath && activePath.toLowerCase().endsWith(".md")) {
+      revealPreview();
+    }
+  }, [activePath, revealPreview]);
 
   const autoLoadedSamples = useRef(false);
   useEffect(() => {
@@ -99,6 +110,7 @@ function IdeShellClient() {
   const documentation = <DocumentationPane />;
   const output = <OutputPane />;
   const gitHistory = <GitHistoryPane />;
+  const preview = <MarkdownPreviewPane />;
 
   const showExplorer = sidebarVisible && !minimized.explorer;
   const showEditor = editorVisible && !minimized.editor;
@@ -106,6 +118,7 @@ function IdeShellClient() {
   const showDocs = documentationVisible && !minimized.documentation;
   const showOutput = outputVisible && !minimized.output;
   const showGitHistory = gitHistoryVisible && !minimized.gitHistory;
+  const showPreview = previewVisible && !minimized.preview;
 
   return (
     <TooltipProvider>
@@ -161,6 +174,9 @@ function IdeShellClient() {
             {maximized === "gitHistory" && showGitHistory && (
               <div className="h-full w-full overflow-hidden">{gitHistory}</div>
             )}
+            {maximized === "preview" && showPreview && (
+              <div className="h-full w-full overflow-hidden">{preview}</div>
+            )}
             {!maximized && (
               <LayoutBody
                 showExplorer={showExplorer}
@@ -168,12 +184,14 @@ function IdeShellClient() {
                 showDocs={showDocs}
                 showOutput={showOutput}
                 showGitHistory={showGitHistory}
+                showPreview={showPreview}
                 showEditor={showEditor}
                 sidebarSide={sidebarSide}
                 panelPosition={panelPosition}
                 docsPosition={docsPosition}
                 outputPosition={outputPosition}
                 gitHistoryPosition={gitHistoryPosition}
+                previewPosition={previewPosition}
                 paneSizes={paneSizes}
                 explorer={explorer}
                 editor={editor}
@@ -181,6 +199,7 @@ function IdeShellClient() {
                 documentation={documentation}
                 output={output}
                 gitHistory={gitHistory}
+                preview={preview}
               />
             )}
             <EdgeSnapOverlay />
@@ -213,12 +232,14 @@ type LayoutBodyProps = {
   showDocs: boolean;
   showOutput: boolean;
   showGitHistory: boolean;
+  showPreview: boolean;
   showEditor: boolean;
   sidebarSide: "left" | "right";
   panelPosition: "bottom" | "right" | "left";
   docsPosition: "bottom" | "right" | "left";
   outputPosition: "bottom" | "right" | "left";
   gitHistoryPosition: "bottom" | "right" | "left";
+  previewPosition: "bottom" | "right" | "left";
   paneSizes: Partial<
     Record<
       | "explorer"
@@ -226,7 +247,8 @@ type LayoutBodyProps = {
       | "terminal"
       | "documentation"
       | "output"
-      | "gitHistory",
+      | "gitHistory"
+      | "preview",
       string
     >
   >;
@@ -236,6 +258,7 @@ type LayoutBodyProps = {
   documentation: ReactNode;
   output: ReactNode;
   gitHistory: ReactNode;
+  preview: ReactNode;
 };
 
 function LayoutBody({
@@ -244,12 +267,14 @@ function LayoutBody({
   showDocs,
   showOutput,
   showGitHistory,
+  showPreview,
   showEditor,
   sidebarSide,
   panelPosition,
   docsPosition,
   outputPosition,
   gitHistoryPosition,
+  previewPosition,
   paneSizes,
   explorer,
   editor,
@@ -257,6 +282,7 @@ function LayoutBody({
   documentation,
   output,
   gitHistory,
+  preview,
 }: LayoutBodyProps) {
   const docsOnSide =
     showDocs && (docsPosition === "left" || docsPosition === "right");
@@ -265,9 +291,13 @@ function LayoutBody({
   const gitHistoryOnSide =
     showGitHistory &&
     (gitHistoryPosition === "left" || gitHistoryPosition === "right");
+  const previewOnSide =
+    showPreview &&
+    (previewPosition === "left" || previewPosition === "right");
   const docsOnBottom = showDocs && docsPosition === "bottom";
   const outputOnBottom = showOutput && outputPosition === "bottom";
   const gitHistoryOnBottom = showGitHistory && gitHistoryPosition === "bottom";
+  const previewOnBottom = showPreview && previewPosition === "bottom";
 
   const center = (
     <EditorBottomStack
@@ -276,6 +306,7 @@ function LayoutBody({
       docsOnBottom={docsOnBottom}
       outputOnBottom={outputOnBottom}
       gitHistoryOnBottom={gitHistoryOnBottom}
+      previewOnBottom={previewOnBottom}
       showEditor={showEditor}
       paneSizes={paneSizes}
       editor={editor}
@@ -283,6 +314,7 @@ function LayoutBody({
       documentation={documentation}
       output={output}
       gitHistory={gitHistory}
+      preview={preview}
     />
   );
 
@@ -335,12 +367,15 @@ function LayoutBody({
     );
   }
 
-  const leftSide: { id: string; node: ReactNode; pane: "documentation" | "output" | "gitHistory" }[] =
-    [];
+  const leftSide: {
+    id: string;
+    node: ReactNode;
+    pane: "documentation" | "output" | "gitHistory" | "preview";
+  }[] = [];
   const rightSide: {
     id: string;
     node: ReactNode;
-    pane: "documentation" | "output" | "gitHistory";
+    pane: "documentation" | "output" | "gitHistory" | "preview";
   }[] = [];
 
   if (docsOnSide) {
@@ -368,6 +403,15 @@ function LayoutBody({
       pane: "gitHistory" as const,
     };
     if (gitHistoryPosition === "left") leftSide.push(item);
+    else rightSide.push(item);
+  }
+  if (previewOnSide) {
+    const item = {
+      id: "preview",
+      node: preview,
+      pane: "preview" as const,
+    };
+    if (previewPosition === "left") leftSide.push(item);
     else rightSide.push(item);
   }
 
@@ -408,7 +452,7 @@ function SidePaneStack({
   panes: {
     id: string;
     node: ReactNode;
-    pane: "documentation" | "output" | "gitHistory";
+    pane: "documentation" | "output" | "gitHistory" | "preview";
   }[];
   paneSizes: LayoutBodyProps["paneSizes"];
 }) {
@@ -471,6 +515,7 @@ function EditorBottomStack({
   docsOnBottom,
   outputOnBottom,
   gitHistoryOnBottom,
+  previewOnBottom,
   showEditor,
   paneSizes,
   editor,
@@ -478,12 +523,14 @@ function EditorBottomStack({
   documentation,
   output,
   gitHistory,
+  preview,
 }: {
   panelPosition: "bottom" | "right" | "left";
   showTerminal: boolean;
   docsOnBottom: boolean;
   outputOnBottom: boolean;
   gitHistoryOnBottom: boolean;
+  previewOnBottom: boolean;
   showEditor: boolean;
   paneSizes: LayoutBodyProps["paneSizes"];
   editor: ReactNode;
@@ -491,6 +538,7 @@ function EditorBottomStack({
   documentation: ReactNode;
   output: ReactNode;
   gitHistory: ReactNode;
+  preview: ReactNode;
 }) {
   const bottomExtras: ReactNode[] = [];
   if (showTerminal && panelPosition === "bottom") {
@@ -542,6 +590,19 @@ function EditorBottomStack({
         className="min-h-0 overflow-hidden"
       >
         {gitHistory}
+      </Panel>
+    );
+  }
+  if (previewOnBottom) {
+    bottomExtras.push(
+      <Panel
+        key="preview-bottom"
+        id="preview-bottom"
+        defaultSize={sizeForPane(paneSizes, "preview", "28%")}
+        minSize="12%"
+        className="min-h-0 overflow-hidden"
+      >
+        {preview}
       </Panel>
     );
   }
