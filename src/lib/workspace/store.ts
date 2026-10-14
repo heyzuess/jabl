@@ -902,7 +902,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const cwdStillOpen = state.cwd
         ? findInFolders(explorerFolders, state.cwd)
         : null;
-      const hasRest = !!findInFolders(explorerFolders, "samples/rest");
       set({
         mode: keepWorkspace ? state.mode : "samples",
         root: keepWorkspace ? state.root : samples,
@@ -911,9 +910,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         expanded,
         explorerFolders,
         loading: false,
-        statusMessage: hasRest
-          ? "Samples loaded — REST needs PASOE WEB (not batch Run). See samples/rest/README.md"
-          : "Sample ABL project loaded",
+        statusMessage: "Sample ABL project loaded",
       });
       useLayoutStore.getState().setSidebarView("explorer");
     } catch (err) {
@@ -951,15 +948,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       language: languageIdForPath(path),
     };
     const already = state.openTabs.some((t) => t.path === path);
-    const restTip =
-      path.includes("/rest/") || path.startsWith("samples/rest")
-        ? " — REST samples need PASOE WEB (not batch Run)"
-        : "";
     set({
       buffers: { ...get().buffers, [path]: content },
       openTabs: already ? state.openTabs : [...state.openTabs, tab],
       activePath: path,
-      statusMessage: `Opened ${node.name}${restTip}`,
+      statusMessage: `Opened ${node.name}`,
     });
     ensureEditorVisible();
     editorLayout().openInFocusedGroup(path);
