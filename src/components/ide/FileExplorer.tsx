@@ -13,6 +13,7 @@ import {
   GitBranch,
   Pencil,
   Trash2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAblFile } from "@/lib/abl/keywords";
@@ -133,6 +134,7 @@ function TreeNode({
   const setCwd = useWorkspaceStore((s) => s.setCwd);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
   const openNewFolderDialog = useWorkspaceStore((s) => s.openNewFolderDialog);
+  const closeExplorerFolder = useWorkspaceStore((s) => s.closeExplorerFolder);
   const renameEntry = useWorkspaceStore((s) => s.renameEntry);
   const deleteEntry = useWorkspaceStore((s) => s.deleteEntry);
   const isActive = useWorkspaceStore((s) => s.activePath === node.path);
@@ -193,36 +195,47 @@ function TreeNode({
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <button
-              type="button"
-              className="flex min-w-0 flex-1 items-center gap-1 py-0.5 text-left hover:bg-accent/60"
-              onClick={() => {
-                toggleExpanded(node.path);
-                setCwd(node.path);
-              }}
-              onDoubleClick={(e) => {
-                e.preventDefault();
-                if (!isRoot) startRename();
-              }}
-              title={node.path}
-            >
-              {isOpen ? (
-                <ChevronDown className="size-3 shrink-0 opacity-70" />
-              ) : (
-                <ChevronRight className="size-3 shrink-0 opacity-70" />
-              )}
-              {isOpen ? (
-                <FolderOpen className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
-              ) : (
-                <Folder className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
-              )}
-              <span className="truncate">{node.name}</span>
-              {gitLetter && (
-                <span className="ml-auto shrink-0 pl-1 font-mono text-[10px] text-[var(--ide-accent)]">
-                  {gitLetter}
-                </span>
-              )}
-            </button>
+            <>
+              <button
+                type="button"
+                className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm hover:bg-accent/60"
+                aria-label={isOpen ? `Collapse ${node.name}` : `Expand ${node.name}`}
+                aria-expanded={isOpen}
+                title={isOpen ? `Collapse ${node.name}` : `Expand ${node.name}`}
+                onClick={() => toggleExpanded(node.path)}
+              >
+                {isOpen ? (
+                  <ChevronDown className="size-3 shrink-0 opacity-70" />
+                ) : (
+                  <ChevronRight className="size-3 shrink-0 opacity-70" />
+                )}
+              </button>
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-1 py-0.5 text-left hover:bg-accent/60"
+                onClick={() => {
+                  if (!isOpen) toggleExpanded(node.path);
+                  setCwd(node.path);
+                }}
+                onDoubleClick={(e) => {
+                  e.preventDefault();
+                  if (!isRoot) startRename();
+                }}
+                title={node.path}
+              >
+                {isOpen ? (
+                  <FolderOpen className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
+                ) : (
+                  <Folder className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
+                )}
+                <span className="truncate">{node.name}</span>
+                {gitLetter && (
+                  <span className="ml-auto shrink-0 pl-1 font-mono text-[10px] text-[var(--ide-accent)]">
+                    {gitLetter}
+                  </span>
+                )}
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -252,6 +265,21 @@ function TreeNode({
           >
             <FolderPlus className="size-3" />
           </button>
+          {isRoot && (
+            <button
+              type="button"
+              title={`Close ${node.name}`}
+              aria-label={`Close ${node.name}`}
+              className={actionBtnClass}
+              onClick={(e) => {
+                e.stopPropagation();
+                closeExplorerFolder(node.path);
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <X className="size-3" />
+            </button>
+          )}
           {!isRoot && (
             <>
               <button
@@ -377,6 +405,143 @@ function TreeNode({
   );
 }
 
+function parentDirRelativeToCwd(filePath: string, cwd: string): string {
+  const rel = pathRelativeTo(filePath, cwd);
+  const slash = rel.lastIndexOf("/");
+  if (slash <= 0) return ".";
+  return rel.slice(0, slash);
+}
+
+function pathRelativeTo(filePath: string, cwd: string): string {
+  const base = cwd.replace(/\/+$/, "");
+  if (!base) return filePath;
+  if (filePath === base) return ".";
+  if (filePath.startsWith(`${base}/`)) return filePath.slice(base.length + 1);
+  const from = base.split("/");
+  const to = filePath.split("/");
+  let shared = 0;
+  while (
+    shared < from.length &&
+    shared < to.length &&
+    from[shared] === to[shared]
+  ) {
+    shared += 1;
+  }
+  const up = Array.from({ length: from.length - shared }, () => "..");
+  return [...up, ...to.slice(shared)].join("/") || ".";
+}
+
+function groupTabsByParent(
+  tabs: OpenTab[],
+  cwd: string
+): { folder: string; tabs: OpenTab[] }[] {
+  const map = new Map<string, OpenTab[]>();
+  for (const tab of tabs) {
+    const folder = parentDirRelativeToCwd(tab.path, cwd);
+    const list = map.get(folder) ?? [];
+    list.push(tab);
+    map.set(folder, list);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => {
+      if (a === ".") return -1;
+      if (b === ".") return 1;
+      return a.localeCompare(b);
+    })
+    .map(([folder, group]) => ({
+      folder,
+      tabs: [...group].sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+}
+
+function FileTabButton({ tab, indent }: { tab: OpenTab; indent: number }) {
+  const setActivePath = useWorkspaceStore((s) => s.setActivePath);
+  const activePath = useWorkspaceStore((s) => s.activePath);
+  const dirty = useWorkspaceStore((s) => s.dirty);
+  const active = tab.path === activePath;
+  const abl = isAblFile(tab.name);
+
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex w-full items-center gap-1 rounded-sm px-1 py-0.5 text-left text-xs hover:bg-accent/60",
+        active && "bg-accent text-accent-foreground",
+        abl && !active && "text-[var(--ide-keyword)]"
+      )}
+      style={{ paddingLeft: indent }}
+      onClick={() => setActivePath(tab.path)}
+      title={tab.path}
+    >
+      <FileCode2
+        className={cn(
+          "size-3.5 shrink-0",
+          abl ? "text-[var(--ide-keyword)]" : "opacity-60"
+        )}
+      />
+      <span className="truncate">
+        {tab.name}
+        {dirty[tab.path] ? " *" : ""}
+      </span>
+    </button>
+  );
+}
+
+function OpenFilesSection({ tabs }: { tabs: OpenTab[] }) {
+  const cwd = useWorkspaceStore((s) => s.cwd);
+  const groups = groupTabsByParent(tabs, cwd);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  if (tabs.length === 0) return null;
+
+  const toggleFolder = (folder: string) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(folder)) next.delete(folder);
+      else next.add(folder);
+      return next;
+    });
+  };
+
+  return (
+    <div className="pt-1">
+      <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Open files
+      </p>
+      {groups.map((group) => {
+        const isCollapsed = collapsed.has(group.folder);
+        return (
+          <div key={group.folder}>
+            <button
+              type="button"
+              className="flex w-full items-center gap-1 rounded-sm px-1 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent/60"
+              title={group.folder}
+              aria-expanded={!isCollapsed}
+              aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${group.folder}`}
+              onClick={() => toggleFolder(group.folder)}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="size-3 shrink-0 opacity-70" />
+              ) : (
+                <ChevronDown className="size-3 shrink-0 opacity-70" />
+              )}
+              {isCollapsed ? (
+                <Folder className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
+              ) : (
+                <FolderOpen className="size-3.5 shrink-0 text-[var(--ide-accent)]" />
+              )}
+              <span className="truncate">{group.folder}</span>
+            </button>
+            {!isCollapsed &&
+              group.tabs.map((tab) => (
+                <FileTabButton key={tab.path} tab={tab} indent={28} />
+              ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function TabSection({
   title,
   tabs,
@@ -384,10 +549,6 @@ function TabSection({
   title: string;
   tabs: OpenTab[];
 }) {
-  const setActivePath = useWorkspaceStore((s) => s.setActivePath);
-  const activePath = useWorkspaceStore((s) => s.activePath);
-  const dirty = useWorkspaceStore((s) => s.dirty);
-
   if (tabs.length === 0) return null;
 
   return (
@@ -395,46 +556,22 @@ function TabSection({
       <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
       </p>
-      {tabs.map((tab) => {
-        const active = tab.path === activePath;
-        const abl = isAblFile(tab.name);
-        return (
-          <button
-            key={tab.path}
-            type="button"
-            className={cn(
-              "flex w-full items-center gap-1 rounded-sm px-1 py-0.5 text-left text-xs hover:bg-accent/60",
-              active && "bg-accent text-accent-foreground",
-              abl && !active && "text-[var(--ide-keyword)]"
-            )}
-            style={{ paddingLeft: 18 }}
-            onClick={() => setActivePath(tab.path)}
-            title={tab.path}
-          >
-            <FileCode2
-              className={cn(
-                "size-3.5 shrink-0",
-                abl ? "text-[var(--ide-keyword)]" : "opacity-60"
-              )}
-            />
-            <span className="truncate">
-              {tab.name}
-              {dirty[tab.path] ? " *" : ""}
-            </span>
-          </button>
-        );
-      })}
+      {tabs.map((tab) => (
+        <FileTabButton key={tab.path} tab={tab} indent={18} />
+      ))}
     </div>
   );
 }
 
 export function FileExplorer() {
   const root = useWorkspaceStore((s) => s.root);
+  const explorerFolders = useWorkspaceStore((s) => s.explorerFolders);
   const loading = useWorkspaceStore((s) => s.loading);
   const openTabs = useWorkspaceStore((s) => s.openTabs);
   const openNewFileDialog = useWorkspaceStore((s) => s.openNewFileDialog);
   const openNewFolderDialog = useWorkspaceStore((s) => s.openNewFolderDialog);
   const setSidebarView = useLayoutStore((s) => s.setSidebarView);
+  const folders = explorerFolders.length ? explorerFolders : root ? [root] : [];
 
   const openFileTabs = openTabs.filter(
     (t) => !t.unsaved && !isUntitledPath(t.path)
@@ -476,7 +613,7 @@ export function FileExplorer() {
               className="inline-flex size-6 items-center justify-center rounded-md text-foreground hover:bg-accent"
               onClick={() => openNewFolderDialog()}
               onPointerDown={(e) => e.stopPropagation()}
-              disabled={!root}
+              disabled={!folders.length}
             >
               <FolderPlus className="size-3.5" />
             </button>
@@ -496,7 +633,7 @@ export function FileExplorer() {
                 Loading…
               </p>
             )}
-            {!loading && !root && (
+            {!loading && folders.length === 0 && (
               <div className="space-y-2 px-2 py-3 text-xs text-muted-foreground">
                 <p>No folder open.</p>
                 <p>
@@ -506,14 +643,9 @@ export function FileExplorer() {
                 </p>
               </div>
             )}
-            {root && (
-              <>
-                <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {root.name}
-                </p>
-                <TreeNode node={root} depth={0} isRoot />
-              </>
-            )}
+            {folders.map((folder) => (
+              <TreeNode key={folder.path} node={folder} depth={0} isRoot />
+            ))}
           </div>
         </Panel>
         <LayoutSeparator
@@ -527,7 +659,7 @@ export function FileExplorer() {
           className="min-h-0 overflow-hidden"
         >
           <div className="h-full min-h-0 overflow-y-auto p-1 pb-4">
-            <TabSection title="Open files" tabs={openFileTabs} />
+            <OpenFilesSection tabs={openFileTabs} />
             <TabSection title="Unsaved" tabs={unsavedTabs} />
             {openFileTabs.length === 0 && unsavedTabs.length === 0 && (
               <p className="px-2 py-2 text-[10px] text-muted-foreground">

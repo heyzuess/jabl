@@ -21,6 +21,7 @@ import {
   MAX_EDITOR_GROUPS,
   useEditorLayoutStore,
   type EditorGroupId,
+  type SplitDirection,
 } from "@/lib/workspace/editor-layout-store";
 import { useWorkspaceStore } from "@/lib/workspace/store";
 import type { DiffTabView, OpenTab } from "@/lib/workspace/types";
@@ -33,6 +34,52 @@ import {
 
 const MARKER_OWNER = "abl-syntax";
 const TAB_MIME = "application/x-jabl-tab";
+const DROP_EDGE = 0.25;
+
+function editorDropZone(
+  clientX: number,
+  clientY: number,
+  rect: DOMRect
+): SplitDirection | "center" {
+  const x = rect.width ? (clientX - rect.left) / rect.width : 0.5;
+  const y = rect.height ? (clientY - rect.top) / rect.height : 0.5;
+  const zones: { zone: SplitDirection; distance: number }[] = [
+    { zone: "left", distance: x },
+    { zone: "right", distance: 1 - x },
+    { zone: "up", distance: y },
+    { zone: "down", distance: 1 - y },
+  ];
+  zones.sort((a, b) => a.distance - b.distance);
+  const nearest = zones[0];
+  if (nearest && nearest.distance < DROP_EDGE) return nearest.zone;
+  return "center";
+}
+
+function dropHintClass(hint: SplitDirection): string {
+  switch (hint) {
+    case "left":
+      return "left-0 top-0 h-full w-1/2";
+    case "right":
+      return "right-0 top-0 h-full w-1/2";
+    case "up":
+      return "left-0 top-0 h-1/2 w-full";
+    case "down":
+      return "bottom-0 left-0 h-1/2 w-full";
+  }
+}
+
+function dropHintLabel(hint: SplitDirection): string {
+  switch (hint) {
+    case "left":
+      return "Split left";
+    case "right":
+      return "Split right";
+    case "up":
+      return "Split up";
+    case "down":
+      return "Split down";
+  }
+}
 
 type EditorPaneProps = {
   groupId: EditorGroupId;
@@ -53,7 +100,7 @@ export function EditorPane({
   const syntaxCheckNonce = useWorkspaceStore((s) => s.syntaxCheckNonce);
   const syntaxFocus = useWorkspaceStore((s) => s.syntaxFocus);
   const clearSyntaxFocus = useWorkspaceStore((s) => s.clearSyntaxFocus);
-  const closeTab = useWorkspaceStore((s) => s.closeTab);
+  const closeTabInGroup = useWorkspaceStore((s) => s.closeTabInGroup);
   const updateBuffer = useWorkspaceStore((s) => s.updateBuffer);
   const saveActive = useWorkspaceStore((s) => s.saveActive);
   const setWorkspaceActive = useWorkspaceStore((s) => s.setActivePath);
@@ -77,7 +124,19 @@ export function EditorPane({
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
-  const [edgeHint, setEdgeHint] = useState<"right" | "down" | null>(null);
+  const [editorDrag, setEditorDrag] = useState(false);
+  const [dropHint, setDropHint] = useState<SplitDirection | null>(null);
+
+  useEffect(() => {
+    const clearDrag = () => {
+      setEditorDrag(false);
+      setDropHint(null);
+      setDragIndex(null);
+      setOverIndex(null);
+    };
+    window.addEventListener("dragend", clearDrag);
+    return () => window.removeEventListener("dragend", clearDrag);
+  }, []);
 
   const gitAvailable = useGitStore((s) => s.available);
   const blameEnabled = useGitStore((s) => s.blameEnabled);
@@ -245,29 +304,15 @@ export function EditorPane({
           onDragOver={(e) => {
             if (![...e.dataTransfer.types].includes(TAB_MIME)) return;
             e.preventDefault();
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            if (canSplit && x > rect.width * 0.75) setEdgeHint("right");
-            else if (canSplit && y > rect.height * 0.55) setEdgeHint("down");
-            else setEdgeHint(null);
           }}
-          onDragLeave={() => setEdgeHint(null)}
           onDrop={(e) => {
             e.preventDefault();
             const raw = e.dataTransfer.getData(TAB_MIME);
-            setEdgeHint(null);
             if (!raw) return;
             const [fromGroupId, path] = raw.split("\t");
             if (!fromGroupId || !path) return;
-            if (edgeHint === "right" || edgeHint === "down") {
-              const newId = splitGroup(groupId, edgeHint);
-              if (newId) {
-                moveTab(path, fromGroupId, newId);
-              }
-              return;
-            }
             moveTab(path, fromGroupId, groupId);
+            setWorkspaceActive(path);
           }}
         >
           {groupTabs.length === 0 && (
@@ -306,11 +351,13 @@ export function EditorPane({
                   const raw = e.dataTransfer.getData(TAB_MIME);
                   setDragIndex(null);
                   setOverIndex(null);
-                  setEdgeHint(null);
+                  setDropHint(null);
+                  setEditorDrag(false);
                   if (raw) {
                     const [fromGroupId, path] = raw.split("\t");
                     if (fromGroupId && path) {
                       moveTab(path, fromGroupId, groupId, index);
+                      setWorkspaceActive(path);
                       return;
                     }
                   }
@@ -321,7 +368,8 @@ export function EditorPane({
                 onDragEnd={() => {
                   setDragIndex(null);
                   setOverIndex(null);
-                  setEdgeHint(null);
+                  setDropHint(null);
+                  setEditorDrag(false);
                 }}
                 className={cn(
                   "group flex h-8 max-w-[180px] cursor-grab items-center gap-1 border-r border-border px-2 text-xs active:cursor-grabbing",
@@ -351,7 +399,7 @@ export function EditorPane({
                   aria-label={`Close ${tab.name}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    closeTab(tab.path);
+                    closeTabInGroup(groupId, tab.path);
                   }}
                 >
                   <X className="size-3" />
@@ -359,9 +407,6 @@ export function EditorPane({
               </div>
             );
           })}
-          {edgeHint && (
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-1/4 bg-[var(--ide-accent)]/10" />
-          )}
         </div>
         <div className="flex shrink-0 items-center gap-0.5 px-1 pb-1">
           {canBlame && (
@@ -442,7 +487,20 @@ export function EditorPane({
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1">
+      <div
+        className="relative min-h-0 flex-1"
+        onDragEnter={(e) => {
+          if (![...e.dataTransfer.types].includes(TAB_MIME)) return;
+          e.preventDefault();
+          setEditorDrag(true);
+        }}
+        onDragOver={(e) => {
+          if (editorDrag) return;
+          if (![...e.dataTransfer.types].includes(TAB_MIME)) return;
+          e.preventDefault();
+          setEditorDrag(true);
+        }}
+      >
         {activeTab?.view?.type === "diff" ? (
           <GitDiffEditorPane
             key={activeTab.path}
@@ -491,6 +549,57 @@ export function EditorPane({
           />
         ) : (
           <EmptyEditor />
+        )}
+        {editorDrag && (
+          <div
+            className="absolute inset-0 z-20"
+            onDragOver={(e) => {
+              if (![...e.dataTransfer.types].includes(TAB_MIME)) return;
+              e.preventDefault();
+              const zone = editorDropZone(
+                e.clientX,
+                e.clientY,
+                e.currentTarget.getBoundingClientRect()
+              );
+              setDropHint(zone !== "center" && canSplit ? zone : null);
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+              setDropHint(null);
+              setEditorDrag(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const raw = e.dataTransfer.getData(TAB_MIME);
+              const zone = editorDropZone(
+                e.clientX,
+                e.clientY,
+                e.currentTarget.getBoundingClientRect()
+              );
+              setDropHint(null);
+              setEditorDrag(false);
+              if (!raw) return;
+              const [fromGroupId, path] = raw.split("\t");
+              if (!fromGroupId || !path) return;
+              if (zone !== "center" && canSplit) {
+                const newId = splitGroup(groupId, zone);
+                if (newId) moveTab(path, fromGroupId, newId);
+              } else {
+                moveTab(path, fromGroupId, groupId);
+              }
+              setWorkspaceActive(path);
+            }}
+          >
+            <div
+              className={cn(
+                "pointer-events-none absolute flex items-center justify-center border-2 border-[var(--ide-accent)] bg-[var(--ide-accent)]/20 text-xs font-medium text-foreground",
+                dropHint ? dropHintClass(dropHint) : "inset-[12%]"
+              )}
+            >
+              {dropHint ? dropHintLabel(dropHint) : "Open here"}
+            </div>
+          </div>
         )}
       </div>
     </div>

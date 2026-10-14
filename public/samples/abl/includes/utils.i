@@ -1,5 +1,7 @@
 /* Shared include — utility snippets for sample programs */
 
+&IF NOT DEFINED(H_UTILS) &THEN
+&GLOBAL-DEFINE H_UTILS
 &GLOBAL-DEFINE SAMPLE-VERSION 1.0
 
 FUNCTION FormatMoney RETURNS CHARACTER
@@ -11,3 +13,5 @@ FUNCTION IsBlank RETURNS LOGICAL
   (INPUT pcValue AS CHARACTER):
   RETURN pcValue = ? OR TRIM(pcValue) = "".
 END FUNCTION.
+
+&ENDIF

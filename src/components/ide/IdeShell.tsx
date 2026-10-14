@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Panel } from "react-resizable-panels";
 import { LayoutGroup, LayoutSeparator } from "./layout-panels";
 import { TitleBar } from "./TitleBar";
@@ -74,10 +74,11 @@ function IdeShellClient() {
   const minimized = useLayoutStore((s) => s.minimized);
   const paneSizes = useLayoutStore((s) => s.paneSizes);
 
+  const autoLoadedSamples = useRef(false);
   useEffect(() => {
-    if (hydrated && mode === "none") {
-      void loadSamples();
-    }
+    if (!hydrated || autoLoadedSamples.current) return;
+    autoLoadedSamples.current = true;
+    if (mode === "none") void loadSamples();
   }, [hydrated, mode, loadSamples]);
 
   const themeKey = `${theme.mode}-${theme.custom.editorBackground}-${theme.custom.keyword}-${theme.custom.comment}-${theme.custom.accent}-${theme.custom.editorForeground}`;

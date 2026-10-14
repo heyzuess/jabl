@@ -81,6 +81,8 @@ export type SaveFileDialogState = {
 export type WorkspaceState = {
   mode: FsMode;
   root: FileNode | null;
+  /** Every top-level folder shown in the explorer. `root` stays the active workspace. */
+  explorerFolders: FileNode[];
   rootName: string;
   cwd: string;
   openTabs: OpenTab[];
@@ -120,8 +122,12 @@ export type WorkspaceState = {
   createNewFolder: (parentDir: string, name: string) => Promise<void>;
   renameEntry: (path: string, newName: string) => Promise<void>;
   deleteEntry: (path: string) => Promise<void>;
+  /** Remove a top-level folder from the explorer without deleting it. */
+  closeExplorerFolder: (path: string) => void;
   setActivePath: (path: string) => void;
   closeTab: (path: string) => void;
+  /** Close a tab in one editor split. Drops the buffer only when no split still shows it. */
+  closeTabInGroup: (groupId: string, path: string) => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   updateBuffer: (path: string, value: string) => void;
   saveActive: () => Promise<void>;
@@ -166,6 +172,51 @@ function uniqueChildName(
     candidate = `${stem}-${n}${ext}`;
   }
   return candidate;
+}
+
+function listedFolders(state: {
+  root: FileNode | null;
+  explorerFolders: FileNode[];
+}): FileNode[] {
+  if (state.explorerFolders.length) return state.explorerFolders;
+  return state.root ? [state.root] : [];
+}
+
+function syncExplorerFolders(
+  state: { root: FileNode | null; explorerFolders: FileNode[] },
+  nextRoot: FileNode
+): FileNode[] {
+  const current = listedFolders(state);
+  const previousPath = state.root?.path;
+  let found = false;
+  const next = current.map((folder) => {
+    if (folder.path === previousPath || folder.path === nextRoot.path) {
+      found = true;
+      return nextRoot;
+    }
+    return folder;
+  });
+  return found ? next : [...next, nextRoot];
+}
+
+function addExplorerFolder(
+  state: { root: FileNode | null; explorerFolders: FileNode[] },
+  folder: FileNode
+): FileNode[] {
+  const current = listedFolders(state);
+  const index = current.findIndex((item) => item.path === folder.path);
+  if (index < 0) return [...current, folder];
+  const next = current.slice();
+  next[index] = folder;
+  return next;
+}
+
+function findInFolders(folders: FileNode[], path: string): FileNode | null {
+  for (const folder of folders) {
+    const node = findNode(folder, path);
+    if (node) return node;
+  }
+  return null;
 }
 
 /** Keep untitled/local tabs when swapping the workspace root. */
@@ -342,6 +393,7 @@ async function loadSampleTree(): Promise<FileNode> {
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   mode: "none",
   root: null,
+  explorerFolders: [],
   rootName: "",
   cwd: "",
   openTabs: [],
@@ -421,18 +473,23 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   openFolderFromHandle: async (handle) => {
     set({ loading: true, statusMessage: "Opening folder…" });
     try {
-      const root = await walkDirectory(handle);
-      const preserved = preserveOutsideState(get());
-      editorLayout().retainPaths(preserved.openTabs.map((t) => t.path));
+      const folder = await walkDirectory(handle);
+      const state = get();
+      const explorerFolders = addExplorerFolder(state, folder);
+      const expanded = new Set(state.expanded);
+      expanded.add(folder.path);
+      const cwdStillOpen = state.cwd
+        ? findInFolders(explorerFolders, state.cwd)
+        : null;
       set({
         mode: "fs-access",
-        root,
-        rootName: root.name,
-        cwd: root.name,
-        expanded: new Set([root.path]),
-        ...preserved,
+        root: folder,
+        rootName: folder.name,
+        cwd: cwdStillOpen ? state.cwd : folder.path,
+        expanded,
+        explorerFolders,
         loading: false,
-        statusMessage: `Opened ${root.name}`,
+        statusMessage: `Opened ${folder.name}`,
       });
       notifyGitRefresh();
     } catch (err) {
@@ -447,7 +504,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   openFolderViaInput: async (files) => {
     set({ loading: true, statusMessage: "Loading folder…" });
     try {
-      const root = treeFromFileList(files);
+      const folder = treeFromFileList(files);
       // Preload text file contents into content field
       const preload = async (node: FileNode) => {
         if (node.kind === "file" && isTextFile(node.name)) {
@@ -461,18 +518,26 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           for (const c of node.children) await preload(c);
         }
       };
-      await preload(root);
-      const preserved = preserveOutsideState(get());
-      editorLayout().retainPaths(preserved.openTabs.map((t) => t.path));
+      await preload(folder);
+      const state = get();
+      const explorerFolders = addExplorerFolder(state, folder);
+      const expanded = new Set(state.expanded);
+      expanded.add(folder.path);
+      const cwdStillOpen = state.cwd
+        ? findInFolders(explorerFolders, state.cwd)
+        : null;
       set({
-        mode: "readonly-input",
-        root,
-        rootName: root.name,
-        cwd: root.name,
-        expanded: new Set([root.path]),
-        ...preserved,
+        mode: state.mode === "fs-access" ? "fs-access" : "readonly-input",
+        root: state.mode === "fs-access" && state.root ? state.root : folder,
+        rootName:
+          state.mode === "fs-access" && state.root
+            ? state.rootName
+            : folder.name,
+        cwd: cwdStillOpen ? state.cwd : folder.path,
+        expanded,
+        explorerFolders,
         loading: false,
-        statusMessage: `Opened ${root.name} (read-only — Save downloads the file)`,
+        statusMessage: `Opened ${folder.name} (read-only — Save downloads the file)`,
       });
     } catch (err) {
       set({
@@ -586,24 +651,35 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   loadSamples: async () => {
-    set({ loading: true, statusMessage: "Loading sample ABL project…" });
+    const stateBefore = get();
+    const alreadyListed = listedFolders(stateBefore).some(
+      (folder) => folder.path === "samples"
+    );
+    if (!alreadyListed && !stateBefore.root) {
+      set({ loading: true, statusMessage: "Loading sample ABL project…" });
+    }
     try {
-      const root = await loadSampleTree();
-      editorLayout().resetLayout();
+      const samples = await loadSampleTree();
+      const state = get();
+      const explorerFolders = addExplorerFolder(state, samples);
+      const expanded = new Set(state.expanded);
+      expanded.add(samples.path);
+      const keepWorkspace =
+        state.root != null && state.root.path !== samples.path;
+      const cwdStillOpen = state.cwd
+        ? findInFolders(explorerFolders, state.cwd)
+        : null;
       set({
-        mode: "samples",
-        root,
-        rootName: root.name,
-        cwd: root.name,
-        // Collapsed by default — user expands samples / type folders as needed
-        expanded: new Set<string>(),
-        openTabs: [],
-        activePath: null,
-        buffers: {},
-        dirty: {},
+        mode: keepWorkspace ? state.mode : "samples",
+        root: keepWorkspace ? state.root : samples,
+        rootName: keepWorkspace ? state.rootName : samples.name,
+        cwd: cwdStillOpen ? state.cwd : keepWorkspace ? state.cwd : samples.path,
+        expanded,
+        explorerFolders,
         loading: false,
         statusMessage: "Sample ABL project loaded",
       });
+      useLayoutStore.getState().setSidebarView("explorer");
     } catch (err) {
       set({
         loading: false,
@@ -613,14 +689,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   openFile: async (path) => {
-    const { root, buffers, openTabs } = get();
-    const node = findNode(root, path);
+    const state = get();
+    const folders = listedFolders(state);
+    const node = findInFolders(folders, path);
     if (!node || node.kind !== "file") {
       set({ statusMessage: `File not found: ${path}` });
       return;
     }
 
-    let content = buffers[path];
+    let content = state.buffers[path];
     if (content == null) {
       try {
         content = await readAttachedFile(node);
@@ -637,10 +714,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       name: node.name,
       language: languageIdForPath(path),
     };
-    const already = openTabs.some((t) => t.path === path);
+    const already = state.openTabs.some((t) => t.path === path);
     set({
       buffers: { ...get().buffers, [path]: content },
-      openTabs: already ? openTabs : [...openTabs, tab],
+      openTabs: already ? state.openTabs : [...state.openTabs, tab],
       activePath: path,
       statusMessage: `Opened ${node.name}`,
     });
@@ -697,6 +774,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }
       set({
         root: nextRoot,
+        explorerFolders: syncExplorerFolders(get(), nextRoot),
         rootName: nextRoot.name,
         buffers: nextBuffers,
         dirty: nextDirty,
@@ -798,6 +876,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         const already = openTabs.some((t) => t.path === newPath);
         set({
           root: nextRoot,
+          explorerFolders: syncExplorerFolders(get(), nextRoot),
           expanded,
           buffers: { ...get().buffers, [newPath]: content },
           dirty: { ...get().dirty, [newPath]: false },
@@ -835,6 +914,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     };
     set({
       root: nextRoot,
+      explorerFolders: syncExplorerFolders(get(), nextRoot),
       expanded,
       buffers: { ...get().buffers, [newPath]: content },
       dirty: { ...get().dirty, [newPath]: false },
@@ -887,6 +967,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         expanded.add(newPath);
         set({
           root: nextRoot,
+          explorerFolders: syncExplorerFolders(get(), nextRoot),
           expanded,
           cwd: newPath,
           statusMessage: `Created folder ${newPath}`,
@@ -912,6 +993,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     expanded.add(newPath);
     set({
       root: nextRoot,
+      explorerFolders: syncExplorerFolders(get(), nextRoot),
       expanded,
       cwd: newPath,
       statusMessage: `Created folder ${newPath}`,
@@ -1001,6 +1083,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     editorLayout().remapPathPrefix(path, newPath);
     set({
       root: nextRoot,
+      explorerFolders: syncExplorerFolders(get(), nextRoot),
       expanded: nextExpanded,
       buffers: nextBuffers,
       dirty: nextDirty,
@@ -1075,6 +1158,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
     set({
       root: nextRoot,
+      explorerFolders: syncExplorerFolders(get(), nextRoot),
       expanded: nextExpanded,
       buffers: nextBuffers,
       dirty: nextDirty,
@@ -1086,9 +1170,64 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     if (mode === "fs-access") notifyGitRefresh();
   },
 
+  closeExplorerFolder: (path) => {
+    const state = get();
+    const folders = listedFolders(state).filter((folder) => folder.path !== path);
+    const closedName = path.split("/").pop() || path;
+    const underClosed = (entry: string) =>
+      entry === path || entry.startsWith(`${path}/`);
+    const expanded = new Set(
+      [...state.expanded].filter((entry) => !underClosed(entry))
+    );
+    const nextRoot =
+      state.root &&
+      state.root.path !== path &&
+      folders.some((folder) => folder.path === state.root?.path)
+        ? state.root
+        : folders.find((folder) => folder.handle) ?? folders[0] ?? null;
+    const cwd =
+      state.cwd && underClosed(state.cwd) ? nextRoot?.path ?? "" : state.cwd;
+    const keptRoot = nextRoot != null && nextRoot.path === state.root?.path;
+    const mode = keptRoot
+      ? state.mode
+      : !nextRoot
+        ? "none"
+        : nextRoot.handle
+          ? "fs-access"
+          : nextRoot.path === "samples"
+            ? "samples"
+            : "readonly-input";
+    set({
+      explorerFolders: folders,
+      root: nextRoot,
+      rootName: nextRoot?.name ?? "",
+      cwd,
+      expanded,
+      mode,
+      statusMessage: `Closed ${closedName}`,
+    });
+    if (nextRoot?.handle) notifyGitRefresh();
+  },
+
   setActivePath: (path) => {
     set({ activePath: path });
     editorLayout().revealPath(path);
+  },
+
+  closeTabInGroup: (groupId, path) => {
+    const stillOpen = editorLayout().closeTabInGroup(groupId, path);
+    if (stillOpen) {
+      if (get().activePath === path) {
+        const stillShowing = Object.values(editorLayout().groups).some(
+          (g) => g.activePath === path
+        );
+        if (!stillShowing) {
+          set({ activePath: editorLayout().getFocusedGroup().activePath });
+        }
+      }
+      return;
+    }
+    get().closeTab(path);
   },
 
   closeTab: (path) => {
@@ -1358,6 +1497,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
       set({
         root: nextRoot,
+        explorerFolders: syncExplorerFolders(get(), nextRoot),
         ...remapped,
         activePath: newPath,
         expanded: nextExpanded,
@@ -1438,44 +1578,61 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   setCwd: (path) => {
-    const { root, rootName } = get();
-    if (!root) return;
-    const normalized = normalizePath(path, rootName);
-    const node = findNode(root, normalized);
-    if (node?.kind === "directory") {
-      set({ cwd: normalized });
+    const folders = listedFolders(get());
+    if (!folders.length) return;
+    for (const folder of folders) {
+      const direct = findNode(folder, path);
+      if (direct?.kind === "directory") {
+        set({ cwd: direct.path });
+        return;
+      }
+      const normalized = normalizePath(path, folder.name);
+      const node = findNode(folder, normalized);
+      if (node?.kind === "directory") {
+        set({ cwd: node.path });
+        return;
+      }
     }
   },
 
   listAt: (path) => {
-    const { root, cwd, rootName } = get();
-    if (!root) return [];
-    const target = path != null ? normalizePath(path, rootName) : cwd || rootName;
-    return listDirectory(root, target);
+    const state = get();
+    const folders = listedFolders(state);
+    if (!folders.length) return [];
+    const target = path != null ? path : state.cwd || folders[0].path;
+    const owner =
+      folders.find(
+        (folder) =>
+          target === folder.path ||
+          target.startsWith(`${folder.path}/`) ||
+          findNode(folder, target)
+      ) ?? folders[0];
+    return listDirectory(owner, normalizePath(target, owner.name));
   },
 
   readAt: async (path) => {
-    const { root, rootName, buffers } = get();
-    if (!root) throw new Error("No workspace open");
-    const normalized = normalizePath(path, rootName);
-    if (buffers[normalized] != null) return buffers[normalized];
-    // Try relative to cwd
-    const withCwd = normalizePath(
-      path.includes("/") || path.startsWith(rootName)
-        ? path
-        : `${get().cwd}/${path}`,
-      rootName
-    );
-    if (buffers[withCwd] != null) return buffers[withCwd];
-    const node =
-      findNode(root, normalized) || findNode(root, withCwd);
-    if (!node || node.kind !== "file") {
-      throw new Error(`File not found: ${path}`);
+    const state = get();
+    const folders = listedFolders(state);
+    if (!folders.length) throw new Error("No workspace open");
+    const { buffers, cwd } = state;
+    for (const folder of folders) {
+      const normalized = normalizePath(path, folder.name);
+      if (buffers[normalized] != null) return buffers[normalized];
+      const withCwd = normalizePath(
+        path.includes("/") || path.startsWith(folder.name)
+          ? path
+          : `${cwd}/${path}`,
+        folder.name
+      );
+      if (buffers[withCwd] != null) return buffers[withCwd];
+      const node = findNode(folder, normalized) || findNode(folder, withCwd);
+      if (!node || node.kind !== "file") continue;
+      if (node.content != null) return node.content;
+      if (node.handle) {
+        return readFileHandle(node.handle as FileSystemFileHandle);
+      }
+      return readAttachedFile(node);
     }
-    if (node.content != null) return node.content;
-    if (node.handle) {
-      return readFileHandle(node.handle as FileSystemFileHandle);
-    }
-    return readAttachedFile(node);
+    throw new Error(`File not found: ${path}`);
   },
 }));

@@ -21,7 +21,7 @@ export type SplitNode =
       sizes: number[];
     };
 
-export type SplitDirection = "right" | "down";
+export type SplitDirection = "left" | "right" | "up" | "down";
 
 type EditorLayoutState = {
   root: SplitNode;
@@ -38,6 +38,8 @@ type EditorLayoutState = {
   /** Activate path in whichever group already has it, else focused group. */
   revealPath: (path: string) => void;
   setGroupActivePath: (groupId: EditorGroupId, path: string) => void;
+  /** Remove a tab from one group. Returns true when another group still has it. */
+  closeTabInGroup: (groupId: EditorGroupId, path: string) => boolean;
   closeTabInGroups: (path: string) => void;
   reorderTabsInGroup: (
     groupId: EditorGroupId,
@@ -238,6 +240,26 @@ export const useEditorLayoutStore = create<EditorLayoutState>((set, get) => ({
     });
   },
 
+  closeTabInGroup: (groupId, path) => {
+    const current = get().groups[groupId];
+    if (!current?.tabPaths.includes(path)) {
+      return Object.values(get().groups).some((g) => g.tabPaths.includes(path));
+    }
+    const tabPaths = current.tabPaths.filter((p) => p !== path);
+    const activePath =
+      current.activePath === path
+        ? tabPaths.length
+          ? tabPaths[tabPaths.length - 1]
+          : null
+        : current.activePath;
+    const groups = {
+      ...get().groups,
+      [groupId]: { ...current, tabPaths, activePath },
+    };
+    set({ groups });
+    return Object.values(groups).some((g) => g.tabPaths.includes(path));
+  },
+
   closeTabInGroups: (path) => {
     const groups = { ...get().groups };
     for (const id of Object.keys(groups)) {
@@ -324,7 +346,6 @@ export const useEditorLayoutStore = create<EditorLayoutState>((set, get) => ({
 
     set({ groups, focusedGroupId: toGroupId });
 
-    // Merge: close empty source group
     if (fromTabs.length === 0) {
       get().closeGroup(fromGroupId);
     }
@@ -360,14 +381,20 @@ export const useEditorLayoutStore = create<EditorLayoutState>((set, get) => ({
     }
 
     const orientation =
-      direction === "right" ? "horizontal" : "vertical";
+      direction === "left" || direction === "right" ? "horizontal" : "vertical";
+    const placeNewFirst = direction === "left" || direction === "up";
     const branch: Extract<SplitNode, { type: "branch" }> = {
       type: "branch",
       orientation,
-      children: [
-        { type: "leaf", groupId },
-        { type: "leaf", groupId: newId },
-      ],
+      children: placeNewFirst
+        ? [
+            { type: "leaf", groupId: newId },
+            { type: "leaf", groupId },
+          ]
+        : [
+            { type: "leaf", groupId },
+            { type: "leaf", groupId: newId },
+          ],
       sizes: [50, 50],
     };
 
